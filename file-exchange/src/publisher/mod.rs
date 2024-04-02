@@ -47,7 +47,7 @@ impl ManifestPublisher {
     }
 
     pub async fn hash_and_publish_files(&self) -> Result<Vec<FileMetaInfo>, Error> {
-        let mut root_hashes = Vec::new();
+        let mut root_hashes: Vec<FileMetaInfo> = Vec::new();
 
         let file_names = &self.config.file_names;
         tracing::trace!(
@@ -96,23 +96,42 @@ impl ManifestPublisher {
         Ok(ipfs_hash)
     }
 
-    pub async fn publish(&self) -> Result<String, Error> {
-        let meta_info = self.hash_and_publish_files().await?;
+    pub async fn publish(&self) -> Result<Vec<String>, Error> {
+        match self.config.manifest_type {
+            crate::config::ManifestType::Bundle => {
+                let meta_info = self.hash_and_publish_files().await?;
 
-        tracing::trace!(
-            meta_info = tracing::field::debug(&meta_info),
-            "hash_and_publish_files",
-        );
-        match self.construct_bundle_manifest(meta_info) {
-            Ok(manifest_yaml) => {
-                let ipfs_hash = self.publish_bundle_manifest(&manifest_yaml).await?;
-                tracing::info!(
-                    "Published bundle manifest to IPFS with hash: {}",
-                    &ipfs_hash
+                tracing::trace!(
+                    meta_info = tracing::field::debug(&meta_info),
+                    "hash_and_publish_files",
                 );
-                Ok(ipfs_hash)
+                match self.construct_bundle_manifest(meta_info) {
+                    Ok(manifest_yaml) => {
+                        let ipfs_hash = self.publish_bundle_manifest(&manifest_yaml).await?;
+                        tracing::info!(
+                            "Published bundle manifest to IPFS with hash: {}",
+                            &ipfs_hash
+                        );
+                        Ok(vec![ipfs_hash])
+                    }
+                    Err(e) => Err(e),
+                }
             }
-            Err(e) => Err(e),
+            crate::config::ManifestType::File => {
+                let file_names = &self.config.file_names;
+                let mut root_hashes: Vec<String> = Vec::new();
+                tracing::trace!(
+                    file_names = tracing::field::debug(&file_names),
+                    "hash_and_publish_files",
+                );
+
+                for file_name in file_names {
+                    let ipfs_hash = self.hash_and_publish_file(file_name, None).await?.hash;
+                    root_hashes.push(ipfs_hash);
+                }
+
+                Ok(root_hashes)
+            }
         }
     }
 

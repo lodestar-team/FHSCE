@@ -199,9 +199,18 @@ pub struct DownloaderArgs {
         long,
         value_name = "IPFS_HASH",
         env = "IPFS_HASH",
-        help = "IPFS hash for the target bundle.yaml"
+        help = "IPFS hash for the target bundle or file manifest"
     )]
     pub ipfs_hash: String,
+    #[arg(
+        long,
+        value_enum,
+        value_name = "manifest_type",
+        env = "manifest_type",
+        default_value_t = ManifestType::Bundle,
+        help = "Download type available: file, bundle (default)"
+    )]
+    pub manifest_type: ManifestType,
     #[arg(
         long,
         value_name = "GATEWAY_URL",
@@ -308,18 +317,24 @@ pub struct PublisherArgs {
         help = "Path to the directory to store the generated yaml file for bundle"
     )]
     pub yaml_store: String,
-
     #[clap(subcommand)]
     pub storage_method: StorageMethod,
-
     #[arg(
         long,
         value_name = "BUNDLE_NAME",
         env = "BUNDLE_NAME",
         help = "Name for the bundle (later this can be interactive)"
     )]
-    pub bundle_name: String,
-
+    pub bundle_name: Option<String>,
+    #[arg(
+        long,
+        value_enum,
+        value_name = "manifest_type",
+        env = "manifest_type",
+        default_value_t = ManifestType::Bundle,
+        help = "Publish type available: file, bundle (default)"
+    )]
+    pub manifest_type: ManifestType,
     #[arg(
         long,
         value_name = "FILE_NAMES",
@@ -328,7 +343,6 @@ pub struct PublisherArgs {
         help = "Name for the files to be included in bundle (later this can be interactive)"
     )]
     pub file_names: Vec<String>,
-
     #[arg(
         long,
         value_name = "FILE_TYPE",
@@ -337,7 +351,6 @@ pub struct PublisherArgs {
         help = "Type of the file (e.g., sql_snapshot, flatfiles)"
     )]
     pub file_type: String,
-
     #[arg(
         long,
         value_name = "FILE_VERSION",
@@ -345,7 +358,6 @@ pub struct PublisherArgs {
         help = "Bundle versioning"
     )]
     pub bundle_version: String,
-
     #[arg(
         long,
         value_name = "IDENTIFIER",
@@ -353,7 +365,6 @@ pub struct PublisherArgs {
         help = "Identifier of the file given its type (chain-id for firehose flatfiles, subgraph deployment hash for subgraph snapshots)"
     )]
     pub identifier: Option<String>,
-
     #[arg(
         long,
         value_name = "CHUNK_SIZE",
@@ -362,7 +373,6 @@ pub struct PublisherArgs {
         help = "Chunk size in bytes to split files (Default: 1048576 bytes = 1MiB)"
     )]
     pub chunk_size: u64,
-
     #[arg(
         long,
         value_name = "START_BLOCK",
@@ -370,7 +380,6 @@ pub struct PublisherArgs {
         help = "Start block for flatfiles"
     )]
     pub start_block: Option<u64>,
-
     #[arg(
         long,
         value_name = "END_BLOCK",
@@ -378,7 +387,6 @@ pub struct PublisherArgs {
         help = "End block for sql snapshot or flatfiles"
     )]
     pub end_block: Option<u64>,
-
     #[arg(
         long,
         value_name = "PUBLISHER_URL",
@@ -386,7 +394,6 @@ pub struct PublisherArgs {
         help = "Self promoting endpoint to record inside the bundle (TODO: can update to be a github repository link)"
     )]
     pub publisher_url: Option<String>,
-
     #[arg(
         long,
         value_name = "DESCRIPTION",
@@ -395,7 +402,6 @@ pub struct PublisherArgs {
         help = "Describe bundle content"
     )]
     pub description: String,
-
     #[arg(
         long,
         value_name = "NETWORK",
@@ -513,6 +519,14 @@ pub struct ApproveArgs {
         value_parser = U256::from_dec_str,
     )]
     pub tokens: U256,
+}
+
+#[allow(unused)]
+#[derive(ValueEnum, Clone, Debug, Serialize, Deserialize, Default)]
+pub enum ManifestType {
+    #[default]
+    Bundle,
+    File,
 }
 
 #[allow(unused)]

@@ -50,3 +50,5 @@ For more information
 ```
 $ file-exchange --help
 ```
+
+To publish files and not gather everything into a bundle, add additional argument of `--manifest-type file`.
