@@ -69,8 +69,6 @@ impl IndexerServiceImpl for ServerContext {
         request: Self::Request,
     ) -> Result<(Self::Request, Self::Response), Self::Error> {
         //TODO: consider routing through file level IPFS
-        // path if path.starts_with("/bundles/id/") => {
-        // }
         tracing::trace!("Process file service {deployment:?}");
         let query_duration_timer = crate::metrics::RESPONSE_TIME
             .with_label_values(&[&deployment.to_string()])
@@ -202,4 +200,25 @@ impl IndexerServiceResponse for FileServiceResponse {
     fn finalize(self, _attestation: Option<Attestation>) -> Self::Data {
         self.inner
     }
+}
+
+pub async fn bundle_containing_file(
+    bundles: Arc<Mutex<HashMap<String, LocalBundle>>>,
+    id: &DeploymentId,
+) -> Option<LocalBundle> {
+    // let bundle_containing_file_req = context.state.bundles.lock().await.map.find(|b| b.bundle.file_manifests.iter().find(|file| file.meta_info.hash == &id.to_string()));
+    let bundles_guard = bundles.lock().await; // Lock the mutex to access the shared state
+
+    // Iterate over the HashMap and find a LocalBundle that matches the criteria
+    for (_ipfs_hash, local_bundle) in bundles_guard.iter() {
+        if local_bundle
+            .bundle
+            .file_manifests
+            .iter()
+            .any(|file| file.meta_info.hash == id.to_string())
+        {
+            return Some(local_bundle.clone());
+        }
+    }
+    None
 }

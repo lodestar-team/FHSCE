@@ -43,11 +43,12 @@ If the client provides a free query auth token, the download will use the free q
 
 ### Quick Start CLI example
 
-Download into local file system with free query auth token
+Download a single file (`--manifest-type`) into local file system (`local-files`) with free query auth token (`--free-query-auth-token`)
 
 ```
 $ file-exchange downloader \
    --ipfs-hash QmHash \
+   --manifest-type "File" \
    --indexer-endpoints http://localhost:5678,http://localhost:5677 \
    --free-query-auth-token 'Bearer auth_token' \
    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
@@ -57,7 +58,7 @@ $ file-exchange downloader \
    local-files --main-dir "../example-file"
 ```
 
-Download into remote object storage bucket with paid query flow
+Download a bundle of files into remote object storage bucket (`object_storage`) with paid query flow
 
 ```
 $ file-exchange downloader \

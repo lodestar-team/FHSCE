@@ -226,60 +226,8 @@ impl Downloader {
         }
     }
 
-    // /// Read bundle manifiest and download the individual file manifests
-    // pub async fn download_file(&self) -> Result<(), Error> {
-    //     self.init_target_chunks(&self.target_manifest);
-    //     tracing::trace!(
-    //         chunks = tracing::field::debug(self.target_chunks.clone()),
-    //         "File manifests download starting"
-    //     );
-
-    //     // check bundle availability from gateway/indexer_endpoints
-    //     self.availbility_check().await?;
-    //     // check balance availability if payment is enabled
-    //     self.escrow_check().await?;
-
-    //     // Loop through file manifests for downloading
-    //     let mut incomplete_progresses = HashMap::new();
-    //     for file_manifest in &self.bundle.file_manifests {
-    //         if let Err(e) = self.download_file_manifest(file_manifest.clone()).await {
-    //             tracing::warn!(
-    //                 hash = &file_manifest.meta_info.hash,
-    //                 error = e.to_string(),
-    //                 "Failed to download file"
-    //             );
-    //             incomplete_progresses.insert(
-    //                 file_manifest.meta_info.hash.clone(),
-    //                 self.remaining_chunks(&file_manifest.meta_info.hash)
-    //                     .into_iter()
-    //                     .collect(),
-    //             );
-    //         }
-    //     }
-
-    //     if !incomplete_progresses.is_empty() {
-    //         let msg = format!(
-    //             "File manifests download incomplete: {:#?}; Store progress for next attempt",
-    //             tracing::field::debug(&incomplete_progresses),
-    //         );
-    //         tracing::warn!(msg);
-    //         // store progress into a json file: {hash: missing_chunk_indices}
-    //         if let Some(file_path) = &self.config.progress_file {
-    //             store_map_as_json(&incomplete_progresses, file_path)?;
-    //         };
-    //         return Err(Error::DataUnavailable(msg));
-    //     }
-
-    //     tracing::info!("File manifests download completed");
-
-    //     if let Some(file_path) = &self.config.progress_file {
-    //         let _ = fs::remove_file(file_path);
-    //     };
-
-    //     Ok(())
-    // }
     /// Read bundle manifiest and download the individual file manifests
-    pub async fn download_bundle(&self) -> Result<(), Error> {
+    pub async fn download_target(&self) -> Result<(), Error> {
         self.init_target_chunks();
         tracing::trace!(
             chunks = tracing::field::debug(self.target_chunks.clone()),

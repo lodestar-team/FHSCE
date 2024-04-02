@@ -5,7 +5,7 @@ mod tests {
     use tokio::fs;
 
     use file_exchange::{
-        config::{DownloaderArgs, LocalDirectory, ManifestType},
+        config::{DownloaderArgs, LocalDirectory},
         download_client::Downloader,
         manifest::ipfs::IpfsClient,
         test_util::server_ready,
@@ -13,12 +13,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_file_transfer() {
-        std::env::set_var("RUST_LOG", "off,file_exchange=trace,file_transfer=trace,file_service=trace,indexer_service=trace,indexer_common=trace");
+        std::env::set_var("RUST_LOG", "off,file_exchange=trace,bundle_transfer=trace,file_service=trace,indexer_service=trace,indexer_common=trace");
         file_exchange::config::init_tracing("pretty").unwrap();
 
         let client = IpfsClient::new("https://ipfs.network.thegraph.com")
             .expect("Could not create client to thegraph IPFS gateway");
-        let target_file = "QmeKabcCQBtgU6QjM3rp3w6pDHFW4r54ee89nGdhuyDuhi".to_string();
+        let target_bundle = "QmeaPp764FjQjPB66M9ijmQKmLhwBpHQhA7dEbH2FA1j3v".to_string();
         // 1. Setup server
         let mut server_process = Command::new("cargo")
             .arg("run")
@@ -41,14 +41,13 @@ mod tests {
             storage_method: file_exchange::config::StorageMethod::LocalFiles(LocalDirectory {
                 main_dir: main_dir.to_str().unwrap().to_string(),
             }),
-            ipfs_hash: target_file,
-            manifest_type: ManifestType::File,
+            ipfs_hash: target_bundle,
             indexer_endpoints: [
                 "http://localhost:5679".to_string(),
                 "http://localhost:5677".to_string(),
             ]
             .to_vec(),
-            verifier: None,
+            verifier: Some(String::from("0xfC24cE7a4428A6B89B52645243662A02BA734ECF")),
             mnemonic: None,
             free_query_auth_token: Some("Bearer free-token".to_string()),
             provider: None,

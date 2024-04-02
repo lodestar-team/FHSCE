@@ -1,14 +1,14 @@
 // #![cfg(feature = "acceptor")]
 
+use file_exchange::errors::Error;
 use indexer_common::indexer_service::http::IndexerServiceImpl;
 use thegraph::types::DeploymentId;
-
-use file_exchange::errors::Error;
 // #![cfg(feature = "acceptor")]
 // use hyper_rustls::TlsAcceptor;
 use hyper::{Body, Response, StatusCode};
 
 use super::{
+    bundle_containing_file,
     range::{parse_range_header, serve_file, serve_file_range},
     ServerContext,
 };
@@ -24,15 +24,32 @@ pub async fn file_service(
         "Received file range request"
     );
 
-    let local_bundle = match context.state.bundles.lock().await.get(&id.to_string()) {
+    let local_bundle = context
+        .state
+        .bundles
+        .lock()
+        .await
+        .get(&id.to_string())
+        .cloned();
+    let local_bundle = match local_bundle {
         Some(s) => s.clone(),
         None => {
-            return Ok(Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body("Bundle not found".into())
-                .unwrap());
+            // not matched at bundle level, try match at file level
+            let bundle = bundle_containing_file(context.state.bundles.clone(), &id).await;
+            if let Some(bundle) = bundle {
+                bundle.clone()
+            } else {
+                return Ok(Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body("Bundle not found".into())
+                    .unwrap());
+            }
         }
     };
+    tracing::debug!(
+        local_bundle = tracing::field::debug(&local_bundle),
+        "Matched bundle"
+    );
 
     match req.get("file-hash") {
         Some(hash) if hash.as_str().is_some() => {

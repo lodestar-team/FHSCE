@@ -47,7 +47,7 @@ async fn main() {
             }
 
             // Send range request
-            match downloader.download_bundle().await {
+            match downloader.download_target().await {
                 Ok(res) => {
                     tracing::info!("Download result: {:#?}", res);
                 }
