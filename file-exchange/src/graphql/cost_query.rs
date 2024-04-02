@@ -19,7 +19,7 @@ struct CostData {
     cost_model: Option<GraphQlCostModel>,
 }
 
-pub async fn indexer_bundle_cost(
+pub async fn indexer_cost(
     client: &reqwest::Client,
     url: &str,
     deployment: &str,

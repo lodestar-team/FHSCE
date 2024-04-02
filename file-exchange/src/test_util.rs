@@ -137,6 +137,6 @@ pub async fn server_ready(url: &str) -> Result<(), anyhow::Error> {
             }
         }
 
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }

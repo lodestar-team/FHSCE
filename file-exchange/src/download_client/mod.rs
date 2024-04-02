@@ -6,6 +6,7 @@ use ethers_core::types::{H160, U256};
 use rand::seq::SliceRandom;
 use reqwest::header::{HeaderName, AUTHORIZATION};
 use secp256k1::SecretKey;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 
@@ -18,6 +19,8 @@ use std::sync::{Arc, Mutex as StdMutex};
 
 use tokio::sync::Mutex;
 
+use crate::manifest::manifest_fetcher::fetch_file_manifest_from_ipfs;
+use crate::manifest::{FileManifest, FileMetaInfo};
 use crate::util::{read_json_to_map, store_map_as_json};
 use crate::{
     config::{DownloaderArgs, OnChainArgs, StorageMethod},
@@ -40,7 +43,7 @@ pub mod signer;
 pub struct Downloader {
     config: DownloaderArgs,
     http_client: reqwest::Client,
-    bundle: Bundle,
+    target_manifest: TargetManifest,
     _gateway_url: Option<String>,
     indexer_urls: Arc<StdMutex<Vec<ServiceEndpoint>>>,
     indexer_blocklist: Arc<StdMutex<HashSet<String>>>,
@@ -49,6 +52,25 @@ pub struct Downloader {
     bundle_finder: Finder,
     payment: PaymentMethod,
     store: Store,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum TargetManifest {
+    BundleManifest(Bundle),
+    FileManifest(FileManifestMeta),
+}
+
+impl TargetManifest {
+    pub fn total_bytes(&self) -> u64 {
+        match &self {
+            TargetManifest::BundleManifest(bundle) => bundle
+                .file_manifests
+                .iter()
+                .map(|f| f.file_manifest.total_bytes)
+                .sum::<u64>(),
+            TargetManifest::FileManifest(f) => f.file_manifest.total_bytes,
+        }
+    }
 }
 
 /// A downloader can either provide a free query auth token or receipt signer
@@ -65,9 +87,26 @@ pub struct OnChainSigner {
 
 impl Downloader {
     pub async fn new(ipfs_client: IpfsClient, args: DownloaderArgs) -> Self {
-        let bundle = read_bundle(&ipfs_client, &args.ipfs_hash)
-            .await
-            .expect("Read bundle");
+        let target_manifest = match args.manifest_type {
+            crate::config::ManifestType::Bundle => {
+                let bundle = read_bundle(&ipfs_client, &args.ipfs_hash)
+                    .await
+                    .expect("Read bundle manifest");
+                TargetManifest::BundleManifest(bundle)
+            }
+            crate::config::ManifestType::File => {
+                let file_manifest = fetch_file_manifest_from_ipfs(&ipfs_client, &args.ipfs_hash)
+                    .await
+                    .expect("Read File manifest");
+                TargetManifest::FileManifest(FileManifestMeta {
+                    meta_info: FileMetaInfo {
+                        name: args.ipfs_hash.clone(),
+                        hash: args.ipfs_hash.clone(),
+                    },
+                    file_manifest,
+                })
+            }
+        };
 
         let payment = if let Some(token) = &args.free_query_auth_token {
             PaymentMethod::FreeQuery(token.clone())
@@ -128,7 +167,7 @@ impl Downloader {
         Downloader {
             config: args.clone(),
             http_client: reqwest::Client::new(),
-            bundle,
+            target_manifest,
             _gateway_url: args.gateway_url,
             indexer_urls: Arc::new(StdMutex::new(Vec::new())),
             indexer_blocklist: Arc::new(StdMutex::new(HashSet::new())),
@@ -153,26 +192,95 @@ impl Downloader {
     }
 
     /// Read manifest to prepare chunks download
-    pub fn init_target_chunks(&self, bundle: &Bundle) {
-        if let Some(file_path) = &self.config.progress_file {
-            let mut target_chunks = self.target_chunks.lock().unwrap();
-            *target_chunks = read_json_to_map(file_path).expect("Progress cache ill-formatted");
-        }
-        for file_manifest_meta in &bundle.file_manifests {
-            let mut target_chunks = self.target_chunks.lock().unwrap();
-            let chunks_set = target_chunks
-                .entry(file_manifest_meta.meta_info.hash.clone())
-                .or_default();
-            let chunk_size = file_manifest_meta.file_manifest.chunk_size;
-            for i in 0..(file_manifest_meta.file_manifest.total_bytes / chunk_size + 1) {
-                chunks_set.insert(i);
+    pub fn init_target_chunks(&self) {
+        match &self.target_manifest {
+            TargetManifest::BundleManifest(bundle) => {
+                if let Some(file_path) = &self.config.progress_file {
+                    let mut target_chunks = self.target_chunks.lock().unwrap();
+                    *target_chunks =
+                        read_json_to_map(file_path).expect("Progress cache ill-formatted");
+                }
+                for file_manifest_meta in &bundle.file_manifests {
+                    let mut target_chunks = self.target_chunks.lock().unwrap();
+                    let chunks_set = target_chunks
+                        .entry(file_manifest_meta.meta_info.hash.clone())
+                        .or_default();
+                    let chunk_size = file_manifest_meta.file_manifest.chunk_size;
+                    for i in 0..(file_manifest_meta.file_manifest.total_bytes / chunk_size + 1) {
+                        chunks_set.insert(i);
+                    }
+                }
+            }
+            TargetManifest::FileManifest(file_meta) => {
+                self.init_target_file_chunks(&file_meta.meta_info.hash, &file_meta.file_manifest)
             }
         }
     }
 
+    /// Read manifest to prepare chunks download
+    pub fn init_target_file_chunks(&self, file_hash: &str, file_manifest: &FileManifest) {
+        let mut target_chunks = self.target_chunks.lock().unwrap();
+        let chunks_set = target_chunks.entry(file_hash.to_string()).or_default();
+        for i in 0..(file_manifest.chunk_hashes.len() as u64) {
+            chunks_set.insert(i);
+        }
+    }
+
+    // /// Read bundle manifiest and download the individual file manifests
+    // pub async fn download_file(&self) -> Result<(), Error> {
+    //     self.init_target_chunks(&self.target_manifest);
+    //     tracing::trace!(
+    //         chunks = tracing::field::debug(self.target_chunks.clone()),
+    //         "File manifests download starting"
+    //     );
+
+    //     // check bundle availability from gateway/indexer_endpoints
+    //     self.availbility_check().await?;
+    //     // check balance availability if payment is enabled
+    //     self.escrow_check().await?;
+
+    //     // Loop through file manifests for downloading
+    //     let mut incomplete_progresses = HashMap::new();
+    //     for file_manifest in &self.bundle.file_manifests {
+    //         if let Err(e) = self.download_file_manifest(file_manifest.clone()).await {
+    //             tracing::warn!(
+    //                 hash = &file_manifest.meta_info.hash,
+    //                 error = e.to_string(),
+    //                 "Failed to download file"
+    //             );
+    //             incomplete_progresses.insert(
+    //                 file_manifest.meta_info.hash.clone(),
+    //                 self.remaining_chunks(&file_manifest.meta_info.hash)
+    //                     .into_iter()
+    //                     .collect(),
+    //             );
+    //         }
+    //     }
+
+    //     if !incomplete_progresses.is_empty() {
+    //         let msg = format!(
+    //             "File manifests download incomplete: {:#?}; Store progress for next attempt",
+    //             tracing::field::debug(&incomplete_progresses),
+    //         );
+    //         tracing::warn!(msg);
+    //         // store progress into a json file: {hash: missing_chunk_indices}
+    //         if let Some(file_path) = &self.config.progress_file {
+    //             store_map_as_json(&incomplete_progresses, file_path)?;
+    //         };
+    //         return Err(Error::DataUnavailable(msg));
+    //     }
+
+    //     tracing::info!("File manifests download completed");
+
+    //     if let Some(file_path) = &self.config.progress_file {
+    //         let _ = fs::remove_file(file_path);
+    //     };
+
+    //     Ok(())
+    // }
     /// Read bundle manifiest and download the individual file manifests
     pub async fn download_bundle(&self) -> Result<(), Error> {
-        self.init_target_chunks(&self.bundle);
+        self.init_target_chunks();
         tracing::trace!(
             chunks = tracing::field::debug(self.target_chunks.clone()),
             "File manifests download starting"
@@ -185,19 +293,38 @@ impl Downloader {
 
         // Loop through file manifests for downloading
         let mut incomplete_progresses = HashMap::new();
-        for file_manifest in &self.bundle.file_manifests {
-            if let Err(e) = self.download_file_manifest(file_manifest.clone()).await {
-                tracing::warn!(
-                    hash = &file_manifest.meta_info.hash,
-                    error = e.to_string(),
-                    "Failed to download file"
-                );
-                incomplete_progresses.insert(
-                    file_manifest.meta_info.hash.clone(),
-                    self.remaining_chunks(&file_manifest.meta_info.hash)
-                        .into_iter()
-                        .collect(),
-                );
+        match &self.target_manifest {
+            TargetManifest::BundleManifest(bundle) => {
+                for file_manifest in &bundle.file_manifests {
+                    if let Err(e) = self.download_file_manifest(file_manifest.clone()).await {
+                        tracing::warn!(
+                            hash = &file_manifest.meta_info.hash,
+                            error = e.to_string(),
+                            "Failed to download file"
+                        );
+                        incomplete_progresses.insert(
+                            file_manifest.meta_info.hash.clone(),
+                            self.remaining_chunks(&file_manifest.meta_info.hash)
+                                .into_iter()
+                                .collect(),
+                        );
+                    }
+                }
+            }
+            TargetManifest::FileManifest(file_manifest) => {
+                if let Err(e) = self.download_file_manifest(file_manifest.clone()).await {
+                    tracing::warn!(
+                        hash = &file_manifest.meta_info.hash,
+                        error = e.to_string(),
+                        "Failed to download file"
+                    );
+                    incomplete_progresses.insert(
+                        file_manifest.meta_info.hash.clone(),
+                        self.remaining_chunks(&file_manifest.meta_info.hash)
+                            .into_iter()
+                            .collect(),
+                    );
+                }
             }
         }
 
@@ -434,53 +561,84 @@ impl Downloader {
             .filter(|url| !blocklist.contains(*url))
             .cloned()
             .collect::<Vec<_>>();
-        let all_available = &self
-            .bundle_finder
-            .bundle_availabilities(&self.config.ipfs_hash, endpoints)
-            .await;
-        let mut sorted_endpoints = all_available.to_vec();
-        // Sort by price_per_byte in ascending order and select the top 'provider_concurrency' endpoints
-        //TODO: add other types of selection such as latency and reliability
-        sorted_endpoints.sort_by(|a, b| {
-            a.price_per_byte
-                .partial_cmp(&b.price_per_byte)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        self.update_indexer_urls(
-            &sorted_endpoints
-                .into_iter()
-                .take(self.config.provider_concurrency as usize)
-                .collect::<Vec<ServiceEndpoint>>(),
-        );
-        let indexer_endpoints = self.indexer_urls.lock().unwrap().clone();
-        if indexer_endpoints.is_empty() {
-            tracing::warn!(
-                bundle_hash = &self.config.ipfs_hash,
-                "No endpoint satisfy the bundle requested, sieve through available bundles for individual files"
-            );
+        match &self.target_manifest {
+            TargetManifest::BundleManifest(bundle) => {
+                let all_available = &self
+                    .bundle_finder
+                    .bundle_available_endpoints(&self.config.ipfs_hash, endpoints)
+                    .await;
+                let mut sorted_endpoints = all_available.to_vec();
+                // Sort by price_per_byte in ascending order and select the top 'provider_concurrency' endpoints
+                //TODO: add other types of selection such as latency and reliability
+                sorted_endpoints.sort_by(|a, b| {
+                    a.price_per_byte
+                        .partial_cmp(&b.price_per_byte)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                self.update_indexer_urls(
+                    &sorted_endpoints
+                        .into_iter()
+                        .take(self.config.provider_concurrency as usize)
+                        .collect::<Vec<ServiceEndpoint>>(),
+                );
+                let indexer_endpoints = self.indexer_urls.lock().unwrap().clone();
+                if indexer_endpoints.is_empty() {
+                    tracing::warn!(
+                        bundle_hash = &bundle.ipfs_hash,
+                        "No endpoint satisfy the bundle requested, sieve through available bundles for individual files"
+                    );
 
-            // check files availability from gateway/indexer_endpoints
-            match self
-                .bundle_finder
-                .file_discovery(&self.config.ipfs_hash, endpoints)
-                .await
-            {
-                Ok(map) => {
-                    let msg = format!(
-                        "Files available on these available bundles: {:#?}",
-                        tracing::field::debug(&map.lock().await),
+                    // check files availability from gateway/indexer_endpoints
+                    match self
+                        .bundle_finder
+                        .file_discovery(&self.config.ipfs_hash, endpoints)
+                        .await
+                    {
+                        Ok(map) => {
+                            let msg = format!(
+                                "Files available on these available bundles: {:#?}",
+                                tracing::field::debug(&map.lock().await),
+                            );
+                            return Err(Error::DataUnavailable(msg));
+                        }
+                        Err(e) => {
+                            let msg = format!(
+                                "Cannot match the files: {:?}, {:?}",
+                                tracing::field::debug(&self.indexer_urls.lock().unwrap()),
+                                tracing::field::debug(&e),
+                            );
+                            tracing::error!(msg);
+                            return Err(Error::DataUnavailable(msg));
+                        }
+                    }
+                };
+            }
+            TargetManifest::FileManifest(file) => {
+                let all_available = &self
+                    .bundle_finder
+                    .file_available_endpoints(&self.config.ipfs_hash, endpoints)
+                    .await;
+                let mut sorted_endpoints = all_available.to_vec();
+                // Sort by price_per_byte in ascending order and select the top 'provider_concurrency' endpoints
+                //TODO: add other types of selection such as latency and reliability
+                sorted_endpoints.sort_by(|a, b| {
+                    a.price_per_byte
+                        .partial_cmp(&b.price_per_byte)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                self.update_indexer_urls(
+                    &sorted_endpoints
+                        .into_iter()
+                        .take(self.config.provider_concurrency as usize)
+                        .collect::<Vec<ServiceEndpoint>>(),
+                );
+                let indexer_endpoints = self.indexer_urls.lock().unwrap().clone();
+                if indexer_endpoints.is_empty() {
+                    tracing::warn!(
+                        file_hash = &file.meta_info.hash,
+                        "No endpoint satisfy the file requested"
                     );
-                    return Err(Error::DataUnavailable(msg));
-                }
-                Err(e) => {
-                    let msg = format!(
-                        "Cannot match the files: {:?}, {:?}",
-                        tracing::field::debug(&self.indexer_urls.lock().unwrap()),
-                        tracing::field::debug(&e),
-                    );
-                    tracing::error!(msg);
-                    return Err(Error::DataUnavailable(msg));
-                }
+                };
             }
         };
         Ok(())
@@ -497,12 +655,7 @@ impl Downloader {
 
             let mut total_buying_power_in_bytes: f64 = 0.0;
             // estimate the cost to download the bundle from each provider
-            let total_bytes = self
-                .bundle
-                .file_manifests
-                .iter()
-                .map(|f| f.file_manifest.total_bytes)
-                .sum::<u64>();
+            let total_bytes = self.target_manifest.total_bytes();
 
             let endpoints = self.indexer_urls.lock().unwrap().clone();
             let multiplier = (total_bytes as f64)

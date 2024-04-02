@@ -60,7 +60,7 @@ mod tests {
         // 3. Find various combinations of bundles
         // 3.1 find bundle_0 with server 0 and 1, get server 0
         let endpoints = finder
-            .bundle_availabilities(
+            .bundle_available_endpoints(
                 &bundle_hash_0,
                 &[server_0.to_string(), server_1.to_string()],
             )
@@ -73,7 +73,7 @@ mod tests {
 
         // 3.2 find bundle_1 with server 0 and 1, get server 1
         let endpoints = finder
-            .bundle_availabilities(
+            .bundle_available_endpoints(
                 &bundle_hash_1,
                 &[server_0.to_string(), server_1.to_string()],
             )
@@ -160,7 +160,7 @@ mod tests {
         // 3.6 large files, not available on neither
         let large_bundle_hash = "QmPexYQsJKyhL867xRaGS2kciNDwggCk7pgUxrNoPQSuPL"; // contains File A,B,C,D,E
         let endpoints = finder
-            .bundle_availabilities(
+            .bundle_available_endpoints(
                 large_bundle_hash,
                 &[server_0.to_string(), server_1.to_string()],
             )
@@ -181,6 +181,16 @@ mod tests {
         assert!(unavailable_files.contains(&String::from(
             "QmSuyvzDpuDBoka2rCimRXPmX2icL7Vu6RUxoFWFQD7YBb"
         )));
+
+        // 3.7 File level checks
+        let file_endpoints = finder
+            .file_available_endpoints(
+                &file_manifest_hash_a,
+                &[server_0.to_string(), server_1.to_string()],
+            )
+            .await;
+        println!("endpoints: {:#?}", file_endpoints);
+        assert!(file_endpoints.len() == 2);
 
         // 4. Cleanup
         let _ = server_process_0.kill();

@@ -1,7 +1,7 @@
 use async_graphql::{Context, EmptyMutation, EmptySubscription, Object, Schema, SimpleObject};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::extract::State;
-use file_exchange::manifest::Bundle;
+
 use serde::{Deserialize, Serialize};
 
 use crate::file_server::ServerContext;
@@ -39,33 +39,31 @@ impl PriceQuery {
         Ok(cost_models)
     }
 
-    /// provide a cost model for a specific bundle served
+    /// provide a cost model for a specific file/bundle served
+    //TODO: add file based cost
     async fn cost_model(
         &self,
         ctx: &Context<'_>,
         deployment: String,
-    ) -> Result<Option<GraphQlCostModel>, anyhow::Error> {
-        let bundle: Option<Bundle> = ctx
+    ) -> Result<GraphQlCostModel, anyhow::Error> {
+        let price: Option<f64> = ctx
             .data_unchecked::<ServerContext>()
             .state
-            .bundles
+            .prices
             .lock()
             .await
             .get(&deployment)
-            .cloned()
-            .map(|b| b.bundle);
-        let res = bundle.map(|_b| {
-            let price: f64 = ctx
-                .data_unchecked::<ServerContext>()
-                .state
-                .config
-                .server
-                .default_price_per_byte;
-            GraphQlCostModel {
-                deployment,
-                price_per_byte: price,
-            }
-        });
+            .cloned();
+        let res = GraphQlCostModel {
+            deployment,
+            price_per_byte: price.unwrap_or(
+                ctx.data_unchecked::<ServerContext>()
+                    .state
+                    .config
+                    .server
+                    .default_price_per_byte,
+            ),
+        };
         Ok(res)
     }
 }

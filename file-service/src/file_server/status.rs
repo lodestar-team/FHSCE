@@ -112,7 +112,7 @@ impl StatusQuery {
         &self,
         ctx: &Context<'_>,
         deployments: Option<Vec<String>>,
-    ) -> Result<Vec<GraphQlFileManifest>, anyhow::Error> {
+    ) -> Result<Vec<GraphQlFileManifestMeta>, anyhow::Error> {
         let bundles: Vec<Bundle> = ctx
             .data_unchecked::<ServerContext>()
             .state
@@ -130,15 +130,15 @@ impl StatusQuery {
         if deployments.is_none() {
             return Ok(file_metas
                 .iter()
-                .map(|m| GraphQlFileManifest::from(m.file_manifest.clone()))
-                .collect::<Vec<GraphQlFileManifest>>());
+                .map(|m| GraphQlFileManifestMeta::from(m.clone()))
+                .collect::<Vec<GraphQlFileManifestMeta>>());
         };
         let ids = deployments.unwrap();
         Ok(file_metas
             .iter()
             .filter(|m| ids.contains(&m.meta_info.hash))
-            .map(|m| m.file_manifest.clone())
-            .map(GraphQlFileManifest::from)
+            .cloned()
+            .map(GraphQlFileManifestMeta::from)
             .collect())
     }
 
@@ -146,7 +146,7 @@ impl StatusQuery {
         &self,
         ctx: &Context<'_>,
         deployment: String,
-    ) -> Result<Option<GraphQlFileManifest>, anyhow::Error> {
+    ) -> Result<Option<GraphQlFileManifestMeta>, anyhow::Error> {
         let bundles: Vec<Bundle> = ctx
             .data_unchecked::<ServerContext>()
             .state
@@ -163,8 +163,8 @@ impl StatusQuery {
         let manifest_graphql = file_metas
             .iter()
             .find(|m| m.meta_info.hash == deployment)
-            .map(|m| m.file_manifest.clone())
-            .map(GraphQlFileManifest::from);
+            .cloned()
+            .map(GraphQlFileManifestMeta::from);
 
         Ok(manifest_graphql)
     }

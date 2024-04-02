@@ -8,9 +8,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::errors::Error;
-use crate::graphql::cost_query::indexer_bundle_cost;
+use crate::graphql::cost_query::indexer_cost;
 
-use crate::graphql::status_query::indexer_bundles;
+use crate::graphql::status_query::{indexer_bundles, indexer_files};
 use crate::manifest::{
     ipfs::IpfsClient,
     manifest_fetcher::{fetch_bundle_from_ipfs, read_bundle},
@@ -42,6 +42,44 @@ impl Finder {
     }
 
     /// Endpoint must serve operator info and the requested file
+    async fn file_availability(
+        &self,
+        file_hash: &str,
+        url: &str,
+    ) -> Result<ServiceEndpoint, Error> {
+        let files = indexer_files(&self.http_client, url).await?;
+        let operator: String = self.indexer_operator(url).await?;
+
+        tracing::debug!(
+            url,
+            operator = tracing::field::debug(&operator),
+            files = tracing::field::debug(&files),
+            "Indexer endpoint"
+        );
+
+        if !files.contains(&file_hash.to_string()) {
+            return Err(Error::DataUnavailable(format!(
+                "IPFS hash not found in files served at {}",
+                url
+            )));
+        }
+
+        let cost = indexer_cost(&self.http_client, url, file_hash)
+            .await?
+            .ok_or(Error::PricingError(
+                "Indexer did not provide a price".to_string(),
+            ))?;
+        tracing::debug!(cost, "Indexer posted price for the file");
+
+        Ok(ServiceEndpoint {
+            operator,
+            service_endpoint: url.to_string(),
+            deployment: file_hash.to_string(),
+            price_per_byte: cost,
+        })
+    }
+
+    /// Endpoint must serve operator info and the requested file
     async fn bundle_availability(
         &self,
         bundle_hash: &str,
@@ -64,7 +102,7 @@ impl Finder {
             )));
         }
 
-        let cost = indexer_bundle_cost(&self.http_client, url, bundle_hash)
+        let cost = indexer_cost(&self.http_client, url, bundle_hash)
             .await?
             .ok_or(Error::PricingError(
                 "Indexer did not provide a price".to_string(),
@@ -81,7 +119,7 @@ impl Finder {
 
     /// Check the availability of a bundle at various indexer endpoints
     /// Return a list of endpoints where the desired bundle is hosted
-    pub async fn bundle_availabilities(
+    pub async fn bundle_available_endpoints(
         &self,
         bundle_hash: &str,
         endpoint_checklist: &[String],
@@ -90,12 +128,44 @@ impl Finder {
             bundle_hash,
             "{:#?} {:#?}",
             tracing::field::debug(endpoint_checklist),
-            "Checking availability"
+            "Checking bundle availability"
         );
 
         // Use a stream to process the endpoints in parallel
         let results = stream::iter(endpoint_checklist)
             .map(|url| self.bundle_availability(bundle_hash, url))
+            .buffer_unordered(endpoint_checklist.len()) // Parallelize up to the number of endpoints
+            .collect::<Vec<Result<ServiceEndpoint, Error>>>()
+            .await;
+
+        tracing::trace!(
+            endpoints = tracing::field::debug(&results),
+            "Endpoint availability result"
+        );
+        // Collect only the successful results
+        results
+            .into_iter()
+            .filter_map(Result::ok)
+            .collect::<Vec<ServiceEndpoint>>()
+    }
+
+    /// Check the availability of a file at various indexer endpoints
+    /// Return a list of endpoints where the desired file is hosted
+    pub async fn file_available_endpoints(
+        &self,
+        file_hash: &str,
+        endpoint_checklist: &[String],
+    ) -> Vec<ServiceEndpoint> {
+        tracing::debug!(
+            file_hash,
+            "{:#?} {:#?}",
+            tracing::field::debug(endpoint_checklist),
+            "Checking file availability"
+        );
+
+        // Use a stream to process the endpoints in parallel
+        let results = stream::iter(endpoint_checklist)
+            .map(|url| self.file_availability(file_hash, url))
             .buffer_unordered(endpoint_checklist.len()) // Parallelize up to the number of endpoints
             .collect::<Vec<Result<ServiceEndpoint, Error>>>()
             .await;
@@ -132,7 +202,10 @@ impl Finder {
         ));
 
         for url in endpoint_checklist {
-            if let Err(_e) = self.file_availability(url, target_hashes.clone()).await {
+            if let Err(_e) = self
+                .bundle_file_availability(url, target_hashes.clone())
+                .await
+            {
                 tracing::debug!("Failed to get file availability: {:#?}", url);
             };
         }
@@ -142,7 +215,7 @@ impl Finder {
     }
 
     /// Gather file availability
-    pub async fn file_availability(
+    pub async fn bundle_file_availability(
         &self,
         url: &str,
         file_map: FileAvailbilityMap,
