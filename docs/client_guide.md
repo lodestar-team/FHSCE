@@ -62,7 +62,7 @@ Download a bundle of files into remote object storage bucket (`object_storage`) 
 ```
 $ file-exchange downloader \
    --ipfs-hash QmHash \
-   --indexer-endpoints http://localhost:5678,http://localhost:5677 \
+   --indexer-endpoints http://localhost:5678,http://localhost:7600 \
    --mnemonic "seed phrase" \
    --verifier 0xfC24cE7a4428A6B89B52645243662A02BA734ECF \
    --provider "arbitrum-sepolia-rpc-endpoint" \

@@ -72,7 +72,7 @@ Run `sqlx migrate run --source file-service/migrations`
 
 CLI with configuration file
 ```
-cargo run -p file-service -- --config ./file-server/template.toml
+cargo run -p file-service -- --config ./template.toml
 ```
 
 (You might need to set an additional envrionmental variable for logs, `RUST_LOG=file_service=debug`)
@@ -116,7 +116,7 @@ Curl query will be similar to the above examples, here we provide an example in 
 ```
 mutation{
   addBundles(deployments:["QmeD3dRVV6Gs84TRwiNj3tLt9mBEMVqy3GoWm7WN8oDzGz", "QmeaPp764FjQjPB66M9ijmQKmLhwBpHQhA7dEbH2FA1j3v"], 
-    locations:["./example-file", "./example-file"]){
+    locations:["/", "/"]){
     ipfsHash
   }
 }
