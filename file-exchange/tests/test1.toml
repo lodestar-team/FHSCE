@@ -4,6 +4,7 @@ initial_bundles = [
     "QmeD3dRVV6Gs84TRwiNj3tLt9mBEMVqy3GoWm7WN8oDzGz:",
     "QmTSwj1BGkkmVSnhw6uEGkcxGZvP5nq4pDhzHjwJvsQC2Z:"
 ]
+initial_files = ["QmeKabcCQBtgU6QjM3rp3w6pDHFW4r54ee89nGdhuyDuhi:0017234500.dbin.zst"]
 admin_auth_token = "kueen"
 admin_host_and_port = "0.0.0.0:5665"
 default_price_per_byte = 1

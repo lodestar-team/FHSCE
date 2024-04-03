@@ -18,8 +18,8 @@ use file_exchange::{
     manifest::{
         ipfs::IpfsClient,
         manifest_fetcher::{fetch_file_manifest_from_ipfs, read_bundle},
-        validate_bundle_and_location, validate_file_and_location, FileManifestMeta, FileMetaInfo,
-        LocalBundle,
+        store::Store,
+        FileManifestMeta, FileMetaInfo, LocalBundle,
     },
 };
 
@@ -31,6 +31,7 @@ pub struct AdminState {
     pub prices: Arc<Mutex<HashMap<String, f64>>>,
     pub admin_auth_token: Option<String>,
     pub admin_schema: AdminSchema,
+    pub store: Store,
 }
 
 #[derive(Clone)]
@@ -91,6 +92,7 @@ pub fn serve_admin(context: ServerContext) {
                 prices: context.state.prices.clone(),
                 admin_auth_token: context.state.admin_auth_token.clone(),
                 admin_schema: build_schema().await,
+                store: context.state.store.clone(),
             }
             .into(),
         );
@@ -142,28 +144,32 @@ impl StatusMutation {
                     .as_ref()
             )));
         }
-        let (hash, loc) = match validate_bundle_and_location(&deployment, &location) {
+        let bundle = match read_bundle(
+            &ctx.data_unchecked::<AdminContext>().state.client,
+            &deployment,
+        )
+        .await
+        {
             Ok(s) => s,
-            Err(e) => return Err(anyhow::anyhow!("Invalid input: {}", e.to_string())),
+            Err(e) => return Err(anyhow::anyhow!(e.to_string(),)),
         };
-        let bundle =
-            match read_bundle(&ctx.data_unchecked::<AdminContext>().state.client, &hash).await {
-                Ok(s) => s,
-                Err(e) => return Err(anyhow::anyhow!(e.to_string(),)),
-            };
+        let local_bundle = LocalBundle {
+            bundle: bundle.clone(),
+            local_path: location.into(),
+        };
+        let _ = ctx
+            .data_unchecked::<AdminContext>()
+            .state
+            .store
+            .validate_local_bundle(&local_bundle)
+            .await;
 
         ctx.data_unchecked::<AdminContext>()
             .state
             .bundles
             .lock()
             .await
-            .insert(
-                bundle.ipfs_hash.clone(),
-                LocalBundle {
-                    bundle: bundle.clone(),
-                    local_path: loc,
-                },
-            );
+            .insert(bundle.ipfs_hash.clone(), local_bundle);
 
         Ok(GraphQlBundle::from(bundle))
     }
@@ -196,20 +202,25 @@ impl StatusMutation {
                 async move {
                     tracing::debug!(deployment, location, "Adding bundle");
 
-                    let (hash, loc) = validate_bundle_and_location(deployment, &location)
-                        .map_err(|e| anyhow::anyhow!("Invalid input: {}", e))?;
-
-                    let bundle = read_bundle(&client.clone(), &hash)
+                    let bundle = read_bundle(&client.clone(), deployment)
                         .await
                         .map_err(|e| anyhow::anyhow!("{}", e))?;
 
-                    bundle_ref.clone().lock().await.insert(
-                        bundle.ipfs_hash.clone(),
-                        LocalBundle {
-                            bundle: bundle.clone(),
-                            local_path: loc,
-                        },
-                    );
+                    let local_bundle = LocalBundle {
+                        bundle: bundle.clone(),
+                        local_path: location.into(),
+                    };
+                    let _ = ctx
+                        .data_unchecked::<AdminContext>()
+                        .state
+                        .store
+                        .validate_local_bundle(&local_bundle)
+                        .await;
+                    bundle_ref
+                        .clone()
+                        .lock()
+                        .await
+                        .insert(bundle.ipfs_hash.clone(), local_bundle);
 
                     Ok::<_, anyhow::Error>(GraphQlBundle::from(bundle))
                 }
@@ -311,13 +322,9 @@ impl StatusMutation {
                     .as_ref()
             )));
         }
-        let (hash, _loc) = match validate_file_and_location(&deployment, &file_name) {
-            Ok(s) => s,
-            Err(e) => return Err(anyhow::anyhow!("Invalid input: {}", e.to_string())),
-        };
         let file_manifest = match fetch_file_manifest_from_ipfs(
             &ctx.data_unchecked::<AdminContext>().state.client,
-            &hash,
+            &deployment,
         )
         .await
         {
@@ -332,6 +339,12 @@ impl StatusMutation {
             },
             file_manifest,
         };
+        let _ = ctx
+            .data_unchecked::<AdminContext>()
+            .state
+            .store
+            .read_and_validate_file(&meta, None)
+            .await;
         ctx.data_unchecked::<AdminContext>()
             .state
             .files
@@ -370,10 +383,7 @@ impl StatusMutation {
                 async move {
                     tracing::debug!(deployment, file_name, "Adding file");
 
-                    let (hash, _loc) = validate_file_and_location(deployment, &file_name)
-                        .map_err(|e| anyhow::anyhow!("Invalid input: {}", e))?;
-
-                    let file_manifest = fetch_file_manifest_from_ipfs(&client.clone(), &hash)
+                    let file_manifest = fetch_file_manifest_from_ipfs(&client.clone(), deployment)
                         .await
                         .map_err(|e| anyhow::anyhow!("{}", e))?;
 
@@ -384,6 +394,12 @@ impl StatusMutation {
                         },
                         file_manifest,
                     };
+                    let _ = ctx
+                        .data_unchecked::<AdminContext>()
+                        .state
+                        .store
+                        .read_and_validate_file(&meta, None)
+                        .await;
                     file_ref
                         .clone()
                         .lock()

@@ -18,7 +18,7 @@ mod tests {
 
         let client = IpfsClient::new("https://ipfs.network.thegraph.com")
             .expect("Could not create client to thegraph IPFS gateway");
-        let target_file = "QmeE38uPSqT5XuHfM8X2JZAYgDCEwmDyMYULmZaRnNqPCj".to_string();
+        let target_file = "QmeKabcCQBtgU6QjM3rp3w6pDHFW4r54ee89nGdhuyDuhi".to_string();
         // 1. Setup server
         let mut server_process = Command::new("cargo")
             .arg("run")

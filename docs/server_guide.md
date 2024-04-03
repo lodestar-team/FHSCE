@@ -75,9 +75,9 @@ CLI with configuration file
 cargo run -p file-service -- --config ./file-server/template.toml
 ```
 
-(You might need to set an additional envrionmental variable for logs, `RUST_LOG=file-service=debug`)
+(You might need to set an additional envrionmental variable for logs, `RUST_LOG=file_service=debug`)
 
-3. Access services via the additional endpoints:
+5. Access services via the additional endpoints:
 
 
 

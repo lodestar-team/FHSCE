@@ -246,7 +246,7 @@ impl Store {
 
         // Read all files in bundle to verify locally. This may cause a long initialization time
         for file_meta in &local.bundle.file_manifests {
-            self.read_and_validate_file(file_meta, &local.local_path)
+            self.read_and_validate_file(file_meta, Some(&local.local_path))
                 .await?;
         }
 
@@ -258,7 +258,7 @@ impl Store {
     pub async fn read_and_validate_file(
         &self,
         file: &FileManifestMeta,
-        prefix: &Path,
+        prefix: Option<&Path>,
     ) -> Result<(), Error> {
         // read file by file_manifest.file_name
         let meta_info = &file.meta_info;
@@ -422,8 +422,7 @@ mod tests {
         .unwrap();
         let mut bundle = simple_bundle();
         let file_meta = bundle.file_manifests.first().unwrap();
-        let path = Path::from("");
-        let res = store.read_and_validate_file(file_meta, &path).await;
+        let res = store.read_and_validate_file(file_meta, None).await;
         assert!(res.is_ok());
 
         // Add tests for failure cases
@@ -433,7 +432,7 @@ mod tests {
             }
         }
         let file_meta = bundle.file_manifests.first().unwrap();
-        let res = store.read_and_validate_file(file_meta, &path).await;
+        let res = store.read_and_validate_file(file_meta, None).await;
         assert!(res.is_err());
     }
 

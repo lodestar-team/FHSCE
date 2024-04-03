@@ -114,7 +114,7 @@ pub fn validate_bundle_entries(entries: Vec<String>) -> Result<Vec<(String, Path
     let mut results = Vec::new();
 
     for entry in entries {
-        results.push(validate_bundle_entry(entry)?);
+        results.push(parse_bundle_entry(entry)?);
     }
 
     Ok(results)
@@ -125,14 +125,14 @@ pub fn validate_file_entries(entries: Vec<String>) -> Result<Vec<(String, Path)>
     let mut results = Vec::new();
 
     for entry in entries {
-        results.push(validate_file_entry(entry)?);
+        results.push(parse_file_entry(entry)?);
     }
 
     Ok(results)
 }
 
 /// Bundle entry must be in the format of "valid_ipfs_hash:valid_local_path"
-pub fn validate_bundle_entry(entry: String) -> Result<(String, Path), Error> {
+pub fn parse_bundle_entry(entry: String) -> Result<(String, Path), Error> {
     let parts: Vec<&str> = entry.split(':').collect();
     if parts.len() != 2 {
         return Err(Error::InvalidConfig(format!(
@@ -143,11 +143,18 @@ pub fn validate_bundle_entry(entry: String) -> Result<(String, Path), Error> {
 
     let ipfs_hash = parts[0];
     let local_path = parts[1];
-    validate_bundle_and_location(ipfs_hash, local_path)
+    if !is_valid_ipfs_hash(ipfs_hash) {
+        return Err(Error::InvalidConfig(format!(
+            "Invalid IPFS hash: {}",
+            ipfs_hash
+        )));
+    }
+
+    Ok((ipfs_hash.to_string(), Path::from(local_path)))
 }
 
 /// Bundle entry must be in the format of "valid_ipfs_hash:valid_local_path"
-pub fn validate_file_entry(entry: String) -> Result<(String, Path), Error> {
+pub fn parse_file_entry(entry: String) -> Result<(String, Path), Error> {
     let parts: Vec<&str> = entry.split(':').collect();
     if parts.len() != 2 {
         return Err(Error::InvalidConfig(format!(
@@ -158,50 +165,11 @@ pub fn validate_file_entry(entry: String) -> Result<(String, Path), Error> {
 
     let ipfs_hash = parts[0];
     let file_name = parts[1];
-    validate_file_and_location(ipfs_hash, file_name)
-}
-
-// Check for valid ipfs hash and path for a bundle
-pub fn validate_bundle_and_location(
-    ipfs_hash: &str,
-    local_path: &str,
-) -> Result<(String, Path), Error> {
     if !is_valid_ipfs_hash(ipfs_hash) {
         return Err(Error::InvalidConfig(format!(
             "Invalid IPFS hash: {}",
             ipfs_hash
         )));
     }
-
-    // Validate local path
-
-    Ok((ipfs_hash.to_string(), Path::from(local_path)))
-}
-
-// Check for valid ipfs hash and path for a file
-pub fn validate_file_and_location(
-    ipfs_hash: &str,
-    file_name: &str,
-) -> Result<(String, Path), Error> {
-    if !is_valid_ipfs_hash(ipfs_hash) {
-        return Err(Error::InvalidConfig(format!(
-            "Invalid IPFS hash: {}",
-            ipfs_hash
-        )));
-    }
-
-    // // Validate filename
-    // // TODO: consider better validation here: file should actually exist
-    // let full_path = Path::new(directory).join(file_path);
-    // fs::metadata(full_path).is_ok()
-
     Ok((ipfs_hash.to_string(), Path::from(file_name)))
 }
-
-// use std::path::Path;
-// use std::fs;
-
-// fn validate_and_check_path(directory: &str, file_path: &str) -> bool {
-//     let full_path = Path::new(directory).join(file_path);
-//     fs::metadata(full_path).is_ok()
-// }
