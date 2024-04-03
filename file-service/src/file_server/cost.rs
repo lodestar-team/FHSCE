@@ -40,7 +40,6 @@ impl PriceQuery {
     }
 
     /// provide a cost model for a specific file/bundle served
-    //TODO: add file based cost
     async fn cost_model(
         &self,
         ctx: &Context<'_>,

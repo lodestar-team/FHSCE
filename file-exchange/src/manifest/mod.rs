@@ -120,12 +120,23 @@ pub fn validate_bundle_entries(entries: Vec<String>) -> Result<Vec<(String, Path
     Ok(results)
 }
 
+/// Validate the file configurations at initialization
+pub fn validate_file_entries(entries: Vec<String>) -> Result<Vec<(String, Path)>, Error> {
+    let mut results = Vec::new();
+
+    for entry in entries {
+        results.push(validate_file_entry(entry)?);
+    }
+
+    Ok(results)
+}
+
 /// Bundle entry must be in the format of "valid_ipfs_hash:valid_local_path"
 pub fn validate_bundle_entry(entry: String) -> Result<(String, Path), Error> {
     let parts: Vec<&str> = entry.split(':').collect();
     if parts.len() != 2 {
         return Err(Error::InvalidConfig(format!(
-            "Invalid format for entry: {}",
+            "Invalid format for bundle entry: {}",
             entry
         )));
     }
@@ -135,7 +146,22 @@ pub fn validate_bundle_entry(entry: String) -> Result<(String, Path), Error> {
     validate_bundle_and_location(ipfs_hash, local_path)
 }
 
-// Check for valid ipfs hash and path
+/// Bundle entry must be in the format of "valid_ipfs_hash:valid_local_path"
+pub fn validate_file_entry(entry: String) -> Result<(String, Path), Error> {
+    let parts: Vec<&str> = entry.split(':').collect();
+    if parts.len() != 2 {
+        return Err(Error::InvalidConfig(format!(
+            "Invalid format for file entry: {}",
+            entry
+        )));
+    }
+
+    let ipfs_hash = parts[0];
+    let file_name = parts[1];
+    validate_file_and_location(ipfs_hash, file_name)
+}
+
+// Check for valid ipfs hash and path for a bundle
 pub fn validate_bundle_and_location(
     ipfs_hash: &str,
     local_path: &str,
@@ -151,3 +177,31 @@ pub fn validate_bundle_and_location(
 
     Ok((ipfs_hash.to_string(), Path::from(local_path)))
 }
+
+// Check for valid ipfs hash and path for a file
+pub fn validate_file_and_location(
+    ipfs_hash: &str,
+    file_name: &str,
+) -> Result<(String, Path), Error> {
+    if !is_valid_ipfs_hash(ipfs_hash) {
+        return Err(Error::InvalidConfig(format!(
+            "Invalid IPFS hash: {}",
+            ipfs_hash
+        )));
+    }
+
+    // // Validate filename
+    // // TODO: consider better validation here: file should actually exist
+    // let full_path = Path::new(directory).join(file_path);
+    // fs::metadata(full_path).is_ok()
+
+    Ok((ipfs_hash.to_string(), Path::from(file_name)))
+}
+
+// use std::path::Path;
+// use std::fs;
+
+// fn validate_and_check_path(directory: &str, file_path: &str) -> bool {
+//     let full_path = Path::new(directory).join(file_path);
+//     fs::metadata(full_path).is_ok()
+// }

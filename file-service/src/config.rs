@@ -38,6 +38,14 @@ pub struct ServerArgs {
         help = "Comma separated list of IPFS hashes and shared prefix of files in the bundles (empty if just in main_directory) to serve upon start-up; the list can be managed through the /admin API without service restart.\nformat: [ipfs_hash:prefix]"
     )]
     pub initial_bundles: Vec<String>,
+    #[arg(
+        long,
+        value_name = "initial-files",
+        env = "INITIAL_FILES",
+        value_delimiter = ',',
+        help = "Comma separated list of IPFS hashes and filename from the main-directory to serve upon start-up; the list can be managed through the /admin API without service restart. (No subdirectory allowed if using File storage)\nformat: [ipfs_hash:file_name]"
+    )]
+    pub initial_files: Vec<String>,
     #[clap(
         long,
         value_name = "admin-auth-token",

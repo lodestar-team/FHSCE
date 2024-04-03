@@ -17,7 +17,9 @@ use tokio::sync::Mutex;
 use crate::{config::Config, database};
 
 use file_exchange::manifest::{
-    ipfs::IpfsClient, manifest_fetcher::read_bundle, validate_bundle_entries, LocalBundle,
+    ipfs::IpfsClient,
+    manifest_fetcher::{fetch_file_manifest_from_ipfs, read_bundle},
+    validate_bundle_entries, validate_file_entries, FileManifestMeta, FileMetaInfo, LocalBundle,
 };
 use file_exchange::util::public_key;
 use file_exchange::{errors::Error, manifest::store::Store};
@@ -36,6 +38,7 @@ pub struct ServerState {
     pub client: IpfsClient,
     pub operator_public_key: String,
     pub bundles: Arc<Mutex<HashMap<String, LocalBundle>>>, // Keyed by IPFS hash, valued by Bundle and Local path
+    pub files: Arc<Mutex<HashMap<String, FileManifestMeta>>>, // Keyed by IPFS hash, valued by Bundle and Local path
     pub prices: Arc<Mutex<HashMap<String, f64>>>, // Keyed by IPFS hash, valued by price per byte
     pub admin_auth_token: Option<String>,         // Add bearer prefix
     pub config: Config,
@@ -95,9 +98,11 @@ pub async fn initialize_server_context(config: Config) -> Result<ServerContext, 
         IpfsClient::localhost()
     };
     let bundle_entries = validate_bundle_entries(config.server.initial_bundles.clone())?;
+    let file_entries = validate_file_entries(config.server.initial_files.clone())?;
     tracing::debug!(
-        entries = tracing::field::debug(&bundle_entries),
-        "Validated bundle entries"
+        initial_bundles = tracing::field::debug(&bundle_entries),
+        initial_files = tracing::field::debug(&file_entries),
+        "Validated initial services"
     );
 
     let store = Store::new(&config.server.storage_method)?;
@@ -115,6 +120,7 @@ pub async fn initialize_server_context(config: Config) -> Result<ServerContext, 
         config: config.clone(),
         client: client.clone(),
         bundles: Arc::new(Mutex::new(HashMap::new())),
+        files: Arc::new(Mutex::new(HashMap::new())),
         prices: Arc::new(Mutex::new(HashMap::new())),
         admin_auth_token,
         operator_public_key: public_key(&config.common.indexer.operator_mnemonic)
@@ -125,7 +131,7 @@ pub async fn initialize_server_context(config: Config) -> Result<ServerContext, 
         store,
     };
 
-    // Fetch the file using IPFS client
+    // Fetch the bundle using IPFS client
     for (ipfs_hash, local_path) in bundle_entries {
         let bundle = read_bundle(&server_state.client, &ipfs_hash).await?;
 
@@ -134,6 +140,22 @@ pub async fn initialize_server_context(config: Config) -> Result<ServerContext, 
             .lock()
             .await
             .insert(bundle.ipfs_hash.clone(), LocalBundle { bundle, local_path });
+    }
+    // Fetch the file using IPFS client
+    for (ipfs_hash, file_name) in file_entries {
+        //todo: for files in a bundle, we don't need to fetch again
+        let file_manifest = fetch_file_manifest_from_ipfs(&server_state.client, &ipfs_hash).await?;
+
+        server_state.files.lock().await.insert(
+            ipfs_hash.clone(),
+            FileManifestMeta {
+                meta_info: FileMetaInfo {
+                    name: file_name.to_string(),
+                    hash: ipfs_hash,
+                },
+                file_manifest,
+            },
+        );
     }
 
     // Return the server state wrapped in an Arc for thread safety

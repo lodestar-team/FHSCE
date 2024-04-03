@@ -9,14 +9,17 @@ use tokio::sync::Mutex;
 
 use crate::file_server::{
     cost::{GraphQlCostModel, PriceQuery},
-    status::{GraphQlBundle, StatusQuery},
+    status::{GraphQlBundle, GraphQlFileManifestMeta, StatusQuery},
     util::graphql_playground,
     FileServiceError, ServerContext,
 };
 use file_exchange::{
     errors::{Error, ServerError},
     manifest::{
-        ipfs::IpfsClient, manifest_fetcher::read_bundle, validate_bundle_and_location, LocalBundle,
+        ipfs::IpfsClient,
+        manifest_fetcher::{fetch_file_manifest_from_ipfs, read_bundle},
+        validate_bundle_and_location, validate_file_and_location, FileManifestMeta, FileMetaInfo,
+        LocalBundle,
     },
 };
 
@@ -24,6 +27,7 @@ use file_exchange::{
 pub struct AdminState {
     pub client: IpfsClient,
     pub bundles: Arc<Mutex<HashMap<String, LocalBundle>>>,
+    pub files: Arc<Mutex<HashMap<String, FileManifestMeta>>>,
     pub prices: Arc<Mutex<HashMap<String, f64>>>,
     pub admin_auth_token: Option<String>,
     pub admin_schema: AdminSchema,
@@ -83,6 +87,7 @@ pub fn serve_admin(context: ServerContext) {
             AdminState {
                 client: context.state.client.clone(),
                 bundles: context.state.bundles.clone(),
+                files: context.state.files.clone(),
                 prices: context.state.prices.clone(),
                 admin_auth_token: context.state.admin_auth_token.clone(),
                 admin_schema: build_schema().await,
@@ -282,6 +287,185 @@ impl StatusMutation {
 
         removed_bundles
     }
+
+    // Add a file
+    async fn add_file(
+        &self,
+        ctx: &Context<'_>,
+        deployment: String,
+        file_name: String,
+    ) -> Result<GraphQlFileManifestMeta, anyhow::Error> {
+        if ctx.data_opt::<String>()
+            != ctx
+                .data_unchecked::<AdminContext>()
+                .state
+                .admin_auth_token
+                .as_ref()
+        {
+            return Err(anyhow::anyhow!(format!(
+                "Failed to authenticate: {:#?} (admin: {:#?}",
+                ctx.data_opt::<String>(),
+                ctx.data_unchecked::<AdminContext>()
+                    .state
+                    .admin_auth_token
+                    .as_ref()
+            )));
+        }
+        let (hash, _loc) = match validate_file_and_location(&deployment, &file_name) {
+            Ok(s) => s,
+            Err(e) => return Err(anyhow::anyhow!("Invalid input: {}", e.to_string())),
+        };
+        let file_manifest = match fetch_file_manifest_from_ipfs(
+            &ctx.data_unchecked::<AdminContext>().state.client,
+            &hash,
+        )
+        .await
+        {
+            Ok(s) => s,
+            Err(e) => return Err(anyhow::anyhow!(e.to_string(),)),
+        };
+
+        let meta = FileManifestMeta {
+            meta_info: FileMetaInfo {
+                name: file_name.clone(),
+                hash: deployment.clone(),
+            },
+            file_manifest,
+        };
+        ctx.data_unchecked::<AdminContext>()
+            .state
+            .files
+            .lock()
+            .await
+            .insert(deployment.clone(), meta.clone());
+
+        Ok(GraphQlFileManifestMeta::from(meta))
+    }
+
+    // Add multiple files
+    async fn add_files(
+        &self,
+        ctx: &Context<'_>,
+        deployments: Vec<String>,
+        file_names: Vec<String>,
+    ) -> Result<Vec<GraphQlFileManifestMeta>, anyhow::Error> {
+        if ctx.data_opt::<String>()
+            != ctx
+                .data_unchecked::<AdminContext>()
+                .state
+                .admin_auth_token
+                .as_ref()
+        {
+            return Err(anyhow::anyhow!("Failed to authenticate"));
+        }
+        let client = ctx.data_unchecked::<AdminContext>().state.client.clone();
+        let file_ref = ctx.data_unchecked::<AdminContext>().state.files.clone();
+        let files = deployments
+            .iter()
+            .zip(file_names)
+            .map(|(deployment, file_name)| {
+                let client = client.clone();
+                let file_ref = file_ref.clone();
+
+                async move {
+                    tracing::debug!(deployment, file_name, "Adding file");
+
+                    let (hash, _loc) = validate_file_and_location(deployment, &file_name)
+                        .map_err(|e| anyhow::anyhow!("Invalid input: {}", e))?;
+
+                    let file_manifest = fetch_file_manifest_from_ipfs(&client.clone(), &hash)
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+                    let meta = FileManifestMeta {
+                        meta_info: FileMetaInfo {
+                            name: file_name.clone(),
+                            hash: deployment.clone(),
+                        },
+                        file_manifest,
+                    };
+                    file_ref
+                        .clone()
+                        .lock()
+                        .await
+                        .insert(deployment.clone(), meta.clone());
+
+                    Ok::<_, anyhow::Error>(GraphQlFileManifestMeta::from(meta))
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // Since collect() gathers futures, we need to resolve them. You can use `try_join_all` for this.
+        let resolved_files: Result<Vec<GraphQlFileManifestMeta>, _> =
+            futures::future::try_join_all(files).await;
+
+        Ok(resolved_files.unwrap_or_default())
+    }
+
+    async fn remove_file(
+        &self,
+        ctx: &Context<'_>,
+        deployment: String,
+    ) -> Result<Option<GraphQlFileManifestMeta>, anyhow::Error> {
+        if ctx.data_opt::<String>()
+            != ctx
+                .data_unchecked::<AdminContext>()
+                .state
+                .admin_auth_token
+                .as_ref()
+        {
+            return Err(anyhow::anyhow!("Failed to authenticate"));
+        }
+
+        let file = ctx
+            .data_unchecked::<AdminContext>()
+            .state
+            .files
+            .lock()
+            .await
+            .remove(&deployment)
+            .map(GraphQlFileManifestMeta::from);
+
+        Ok(file)
+    }
+
+    async fn remove_files(
+        &self,
+        ctx: &Context<'_>,
+        deployments: Vec<String>,
+    ) -> Result<Vec<GraphQlFileManifestMeta>, anyhow::Error> {
+        if ctx.data_opt::<String>()
+            != ctx
+                .data_unchecked::<AdminContext>()
+                .state
+                .admin_auth_token
+                .as_ref()
+        {
+            return Err(anyhow::anyhow!("Failed to authenticate"));
+        }
+
+        let files = deployments
+            .iter()
+            .map(|deployment| async move {
+                ctx.data_unchecked::<AdminContext>()
+                    .state
+                    .files
+                    .lock()
+                    .await
+                    .remove(deployment)
+                    .map(GraphQlFileManifestMeta::from)
+                    .ok_or(anyhow::anyhow!(format!(
+                        "Deployment not found: {}",
+                        deployment
+                    )))
+            })
+            .collect::<Vec<_>>();
+
+        let removed_files: Result<Vec<GraphQlFileManifestMeta>, _> =
+            futures::future::try_join_all(files).await;
+
+        removed_files
+    }
 }
 
 #[derive(Default)]
@@ -289,7 +473,7 @@ pub struct PriceMutation;
 
 #[Object]
 impl PriceMutation {
-    // Set price for a deployment
+    /// Set price for a deployment
     async fn set_price(
         &self,
         ctx: &Context<'_>,
@@ -326,7 +510,7 @@ impl PriceMutation {
         })
     }
 
-    // Add multiple bundles
+    /// Set multiple prices
     async fn set_prices(
         &self,
         ctx: &Context<'_>,
@@ -371,6 +555,7 @@ impl PriceMutation {
         Ok(resolved_prices.unwrap_or_default())
     }
 
+    /// Removing the set price; default will be used as a fallback
     async fn remove_price(
         &self,
         ctx: &Context<'_>,
@@ -401,6 +586,7 @@ impl PriceMutation {
         Ok(bundle)
     }
 
+    /// Remove set prices, default will be used later
     async fn remove_prices(
         &self,
         ctx: &Context<'_>,

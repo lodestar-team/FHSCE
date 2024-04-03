@@ -108,7 +108,8 @@ pub struct StatusQuery;
 
 #[Object]
 impl StatusQuery {
-    async fn files(
+    /// Files inside some bundles
+    async fn bundled_files(
         &self,
         ctx: &Context<'_>,
         deployments: Option<Vec<String>>,
@@ -142,7 +143,8 @@ impl StatusQuery {
             .collect())
     }
 
-    async fn file(
+    /// A file inside some bundles
+    async fn bundled_file(
         &self,
         ctx: &Context<'_>,
         deployment: String,
@@ -169,6 +171,7 @@ impl StatusQuery {
         Ok(manifest_graphql)
     }
 
+    /// Bundles, optional deployments filter
     async fn bundles(
         &self,
         ctx: &Context<'_>,
@@ -205,6 +208,7 @@ impl StatusQuery {
         Ok(bundles)
     }
 
+    /// A single bundle by deployment hash
     async fn bundle(
         &self,
         ctx: &Context<'_>,
@@ -222,6 +226,57 @@ impl StatusQuery {
             .map(|b| b.bundle.clone());
 
         Ok(bundle.map(GraphQlBundle::from))
+    }
+
+    /// Serving files with optional deployments filter
+    async fn files(
+        &self,
+        ctx: &Context<'_>,
+        deployments: Option<Vec<String>>,
+    ) -> Result<Vec<GraphQlFileManifestMeta>, anyhow::Error> {
+        let file_metas: Vec<FileManifestMeta> = ctx
+            .data_unchecked::<ServerContext>()
+            .state
+            .files
+            .lock()
+            .await
+            .values()
+            .cloned()
+            .collect();
+
+        if deployments.is_none() {
+            return Ok(file_metas
+                .iter()
+                .map(|m| GraphQlFileManifestMeta::from(m.clone()))
+                .collect::<Vec<GraphQlFileManifestMeta>>());
+        };
+        let ids = deployments.unwrap();
+        Ok(file_metas
+            .iter()
+            .filter(|m| ids.contains(&m.meta_info.hash))
+            .cloned()
+            .map(GraphQlFileManifestMeta::from)
+            .collect())
+    }
+
+    /// A single file by deployment hash
+    async fn file(
+        &self,
+        ctx: &Context<'_>,
+        deployment: String,
+    ) -> Result<Option<GraphQlFileManifestMeta>, anyhow::Error> {
+        let file_meta: Option<GraphQlFileManifestMeta> = ctx
+            .data_unchecked::<ServerContext>()
+            .state
+            .files
+            .lock()
+            .await
+            .values()
+            .find(|m| m.meta_info.hash == deployment)
+            .cloned()
+            .map(GraphQlFileManifestMeta::from);
+
+        Ok(file_meta)
     }
 }
 
