@@ -103,10 +103,10 @@ impl Store {
             .cloned()
     }
 
-    pub async fn range_read(&self, file_name: &str, range: &Range<usize>) -> Result<Bytes, Error> {
+    pub async fn range_read(&self, file_loc: &Path, range: &Range<usize>) -> Result<Bytes, Error> {
         Ok(self
             .store
-            .get_range(&Path::from(file_name), range.to_owned())
+            .get_range(file_loc, range.to_owned())
             .await
             .unwrap())
     }
@@ -241,7 +241,7 @@ impl Store {
     pub async fn validate_local_bundle(&self, local: &LocalBundle) -> Result<&Self, Error> {
         tracing::trace!(
             bundle = tracing::field::debug(&local),
-            "Read and verify bundle. This may cause a long initialization time."
+            "Read and verify bundle. This might take a while based on bundle size."
         );
 
         // Read all files in bundle to verify locally. This may cause a long initialization time
@@ -263,14 +263,20 @@ impl Store {
         // read file by file_manifest.file_name
         let meta_info = &file.meta_info;
         let file_manifest = &file.file_manifest;
-        // let mut file_path = self.local_path.clone();
-        // file_path.push(meta_info.name.clone());
         tracing::trace!(
             // file_path = tracing::field::debug(&file_path),
             file_prefix = tracing::field::debug(&prefix),
             file_manifest = tracing::field::debug(&file_manifest),
             "Verify file"
         );
+        let metadata =
+            self.find_object(&meta_info.name, prefix)
+                .await
+                .ok_or(Error::DataUnavailable(format!(
+                    "Cannot find object {} with prefix {:#?} in store's main directory path",
+                    meta_info.name, prefix,
+                )))?;
+        tracing::trace!(file_meta = tracing::field::debug(&metadata), "Found file");
 
         // loop through file manifest byte range
         let chunk_ops: Vec<_> = (0..(file_manifest.total_bytes / file_manifest.chunk_size + 1))
@@ -288,13 +294,12 @@ impl Store {
             })
             .collect();
 
-        let file_name = meta_info.name.clone();
         for (range, chunk_hash) in chunk_ops {
-            let chunk_data = self.range_read(&file_name, &range).await?;
+            let chunk_data = self.range_read(&metadata.location, &range).await?;
             // verify chunk
             if !verify_chunk(&chunk_data, &chunk_hash) {
                 tracing::error!(
-                    file = tracing::field::debug(&file_name),
+                    file = tracing::field::debug(&metadata),
                     chunk_hash = tracing::field::debug(&chunk_hash),
                     "Cannot locally verify the serving file"
                 );

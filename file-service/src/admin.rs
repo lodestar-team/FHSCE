@@ -127,7 +127,7 @@ impl StatusMutation {
         ctx: &Context<'_>,
         deployment: String,
         location: String,
-    ) -> Result<GraphQlBundle, anyhow::Error> {
+    ) -> Result<GraphQlBundle, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -135,13 +135,9 @@ impl StatusMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!(format!(
-                "Failed to authenticate: {:#?} (admin: {:#?}",
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
                 ctx.data_opt::<String>(),
-                ctx.data_unchecked::<AdminContext>()
-                    .state
-                    .admin_auth_token
-                    .as_ref()
             )));
         }
         let bundle = match read_bundle(
@@ -151,7 +147,7 @@ impl StatusMutation {
         .await
         {
             Ok(s) => s,
-            Err(e) => return Err(anyhow::anyhow!(e.to_string(),)),
+            Err(e) => return Err(ServerError::RequestBodyError(e.to_string())),
         };
         let local_bundle = LocalBundle {
             bundle: bundle.clone(),
@@ -162,7 +158,8 @@ impl StatusMutation {
             .state
             .store
             .validate_local_bundle(&local_bundle)
-            .await;
+            .await
+            .map_err(|e| ServerError::ContextError(e.to_string()))?;
 
         ctx.data_unchecked::<AdminContext>()
             .state
@@ -180,7 +177,7 @@ impl StatusMutation {
         ctx: &Context<'_>,
         deployments: Vec<String>,
         locations: Vec<String>,
-    ) -> Result<Vec<GraphQlBundle>, anyhow::Error> {
+    ) -> Result<Vec<GraphQlBundle>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -188,7 +185,9 @@ impl StatusMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(
+                "Failed to authenticate".to_string(),
+            ));
         }
         let client = ctx.data_unchecked::<AdminContext>().state.client.clone();
         let bundle_ref = ctx.data_unchecked::<AdminContext>().state.bundles.clone();
@@ -204,7 +203,7 @@ impl StatusMutation {
 
                     let bundle = read_bundle(&client.clone(), deployment)
                         .await
-                        .map_err(|e| anyhow::anyhow!("{}", e))?;
+                        .map_err(|e| ServerError::RequestBodyError(e.to_string()))?;
 
                     let local_bundle = LocalBundle {
                         bundle: bundle.clone(),
@@ -215,30 +214,30 @@ impl StatusMutation {
                         .state
                         .store
                         .validate_local_bundle(&local_bundle)
-                        .await;
+                        .await
+                        .map_err(|e| ServerError::ContextError(e.to_string()))?;
                     bundle_ref
                         .clone()
                         .lock()
                         .await
                         .insert(bundle.ipfs_hash.clone(), local_bundle);
 
-                    Ok::<_, anyhow::Error>(GraphQlBundle::from(bundle))
+                    Ok::<_, crate::admin::ServerError>(GraphQlBundle::from(bundle))
                 }
             })
             .collect::<Vec<_>>();
 
         // Since collect() gathers futures, we need to resolve them. You can use `try_join_all` for this.
-        let resolved_bundles: Result<Vec<GraphQlBundle>, _> =
-            futures::future::try_join_all(bundles).await;
+        let resolved_bundles: Vec<GraphQlBundle> = futures::future::try_join_all(bundles).await?;
 
-        Ok(resolved_bundles.unwrap_or_default())
+        Ok(resolved_bundles)
     }
 
     async fn remove_bundle(
         &self,
         ctx: &Context<'_>,
         deployment: String,
-    ) -> Result<Option<GraphQlBundle>, anyhow::Error> {
+    ) -> Result<Option<GraphQlBundle>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -246,7 +245,10 @@ impl StatusMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
+                ctx.data_opt::<String>(),
+            )));
         }
 
         let bundle = ctx
@@ -265,7 +267,7 @@ impl StatusMutation {
         &self,
         ctx: &Context<'_>,
         deployments: Vec<String>,
-    ) -> Result<Vec<GraphQlBundle>, anyhow::Error> {
+    ) -> Result<Vec<GraphQlBundle>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -273,7 +275,10 @@ impl StatusMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
+                ctx.data_opt::<String>(),
+            )));
         }
 
         let bundles = deployments
@@ -286,17 +291,16 @@ impl StatusMutation {
                     .await
                     .remove(deployment)
                     .map(|b| GraphQlBundle::from(b.bundle))
-                    .ok_or(anyhow::anyhow!(format!(
+                    .ok_or(ServerError::ContextError(format!(
                         "Deployment not found: {}",
                         deployment
                     )))
             })
             .collect::<Vec<_>>();
 
-        let removed_bundles: Result<Vec<GraphQlBundle>, _> =
-            futures::future::try_join_all(bundles).await;
+        let removed_bundles: Vec<GraphQlBundle> = futures::future::try_join_all(bundles).await?;
 
-        removed_bundles
+        Ok(removed_bundles)
     }
 
     // Add a file
@@ -305,7 +309,7 @@ impl StatusMutation {
         ctx: &Context<'_>,
         deployment: String,
         file_name: String,
-    ) -> Result<GraphQlFileManifestMeta, anyhow::Error> {
+    ) -> Result<GraphQlFileManifestMeta, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -313,13 +317,9 @@ impl StatusMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!(format!(
-                "Failed to authenticate: {:#?} (admin: {:#?}",
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
                 ctx.data_opt::<String>(),
-                ctx.data_unchecked::<AdminContext>()
-                    .state
-                    .admin_auth_token
-                    .as_ref()
             )));
         }
         let file_manifest = match fetch_file_manifest_from_ipfs(
@@ -329,7 +329,7 @@ impl StatusMutation {
         .await
         {
             Ok(s) => s,
-            Err(e) => return Err(anyhow::anyhow!(e.to_string(),)),
+            Err(e) => return Err(ServerError::ContextError(e.to_string())),
         };
 
         let meta = FileManifestMeta {
@@ -339,12 +339,12 @@ impl StatusMutation {
             },
             file_manifest,
         };
-        let _ = ctx
-            .data_unchecked::<AdminContext>()
+        ctx.data_unchecked::<AdminContext>()
             .state
             .store
             .read_and_validate_file(&meta, None)
-            .await;
+            .await
+            .map_err(|e| ServerError::ContextError(e.to_string()))?;
         ctx.data_unchecked::<AdminContext>()
             .state
             .files
@@ -361,7 +361,7 @@ impl StatusMutation {
         ctx: &Context<'_>,
         deployments: Vec<String>,
         file_names: Vec<String>,
-    ) -> Result<Vec<GraphQlFileManifestMeta>, anyhow::Error> {
+    ) -> Result<Vec<GraphQlFileManifestMeta>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -369,7 +369,10 @@ impl StatusMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
+                ctx.data_opt::<String>(),
+            )));
         }
         let client = ctx.data_unchecked::<AdminContext>().state.client.clone();
         let file_ref = ctx.data_unchecked::<AdminContext>().state.files.clone();
@@ -385,7 +388,7 @@ impl StatusMutation {
 
                     let file_manifest = fetch_file_manifest_from_ipfs(&client.clone(), deployment)
                         .await
-                        .map_err(|e| anyhow::anyhow!("{}", e))?;
+                        .map_err(|e| ServerError::ContextError(e.to_string()))?;
 
                     let meta = FileManifestMeta {
                         meta_info: FileMetaInfo {
@@ -394,19 +397,19 @@ impl StatusMutation {
                         },
                         file_manifest,
                     };
-                    let _ = ctx
-                        .data_unchecked::<AdminContext>()
+                    ctx.data_unchecked::<AdminContext>()
                         .state
                         .store
                         .read_and_validate_file(&meta, None)
-                        .await;
+                        .await
+                        .map_err(|e| ServerError::ContextError(e.to_string()))?;
                     file_ref
                         .clone()
                         .lock()
                         .await
                         .insert(deployment.clone(), meta.clone());
 
-                    Ok::<_, anyhow::Error>(GraphQlFileManifestMeta::from(meta))
+                    Ok::<_, crate::admin::ServerError>(GraphQlFileManifestMeta::from(meta))
                 }
             })
             .collect::<Vec<_>>();
@@ -422,7 +425,7 @@ impl StatusMutation {
         &self,
         ctx: &Context<'_>,
         deployment: String,
-    ) -> Result<Option<GraphQlFileManifestMeta>, anyhow::Error> {
+    ) -> Result<Option<GraphQlFileManifestMeta>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -430,7 +433,10 @@ impl StatusMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
+                ctx.data_opt::<String>(),
+            )));
         }
 
         let file = ctx
@@ -449,7 +455,7 @@ impl StatusMutation {
         &self,
         ctx: &Context<'_>,
         deployments: Vec<String>,
-    ) -> Result<Vec<GraphQlFileManifestMeta>, anyhow::Error> {
+    ) -> Result<Vec<GraphQlFileManifestMeta>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -457,7 +463,10 @@ impl StatusMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
+                ctx.data_opt::<String>(),
+            )));
         }
 
         let files = deployments
@@ -470,7 +479,7 @@ impl StatusMutation {
                     .await
                     .remove(deployment)
                     .map(GraphQlFileManifestMeta::from)
-                    .ok_or(anyhow::anyhow!(format!(
+                    .ok_or(ServerError::ContextError(format!(
                         "Deployment not found: {}",
                         deployment
                     )))
@@ -495,7 +504,7 @@ impl PriceMutation {
         ctx: &Context<'_>,
         deployment: String,
         price_per_byte: f64,
-    ) -> Result<GraphQlCostModel, anyhow::Error> {
+    ) -> Result<GraphQlCostModel, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -503,13 +512,9 @@ impl PriceMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!(format!(
-                "Failed to authenticate: {:#?} (admin: {:#?}",
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
                 ctx.data_opt::<String>(),
-                ctx.data_unchecked::<AdminContext>()
-                    .state
-                    .admin_auth_token
-                    .as_ref()
             )));
         }
 
@@ -532,7 +537,7 @@ impl PriceMutation {
         ctx: &Context<'_>,
         deployments: Vec<String>,
         prices: Vec<f64>,
-    ) -> Result<Vec<GraphQlCostModel>, anyhow::Error> {
+    ) -> Result<Vec<GraphQlCostModel>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -540,7 +545,10 @@ impl PriceMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
+                ctx.data_opt::<String>(),
+            )));
         }
         let price_ref = ctx.data_unchecked::<AdminContext>().state.prices.clone();
         let prices = deployments
@@ -576,7 +584,7 @@ impl PriceMutation {
         &self,
         ctx: &Context<'_>,
         deployment: String,
-    ) -> Result<Option<GraphQlCostModel>, anyhow::Error> {
+    ) -> Result<Option<GraphQlCostModel>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -584,7 +592,10 @@ impl PriceMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
+                ctx.data_opt::<String>(),
+            )));
         }
 
         let bundle = ctx
@@ -607,7 +618,7 @@ impl PriceMutation {
         &self,
         ctx: &Context<'_>,
         deployments: Vec<String>,
-    ) -> Result<Vec<GraphQlCostModel>, anyhow::Error> {
+    ) -> Result<Vec<GraphQlCostModel>, ServerError> {
         if ctx.data_opt::<String>()
             != ctx
                 .data_unchecked::<AdminContext>()
@@ -615,7 +626,10 @@ impl PriceMutation {
                 .admin_auth_token
                 .as_ref()
         {
-            return Err(anyhow::anyhow!("Failed to authenticate"));
+            return Err(ServerError::InvalidAuthentication(format!(
+                "Failed to authenticate: {:#?}",
+                ctx.data_opt::<String>(),
+            )));
         }
 
         let prices = deployments
@@ -631,7 +645,7 @@ impl PriceMutation {
                         deployment: deployment.to_string(),
                         price_per_byte: price,
                     })
-                    .ok_or(anyhow::anyhow!(format!(
+                    .ok_or(ServerError::ContextError(format!(
                         "Deployment not found: {}",
                         deployment
                     )))

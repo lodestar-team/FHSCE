@@ -5,6 +5,7 @@ use file_exchange::{
     config::{LocalDirectory, StorageMethod},
     manifest::store::Store,
 };
+use object_store::path::Path;
 use rand::Rng;
 use std::{fs::File, ops::Range, path::PathBuf};
 
@@ -23,7 +24,7 @@ fn read_chunk_benchmark(c: &mut Criterion) {
         }))
         .unwrap(),
     );
-    let file_name = black_box("0017234600.dbin.zst");
+    let file_loc = black_box(Path::from("0017234600.dbin.zst"));
     let file = black_box(File::open(file_path).unwrap());
     let file_size: usize = black_box(
         file.metadata()
@@ -36,7 +37,7 @@ fn read_chunk_benchmark(c: &mut Criterion) {
     c.bench_function("read_chunk", |b| {
         let range = black_box(random_file_range(file_size));
         b.to_async(FuturesExecutor)
-            .iter(|| store.range_read(file_name, &range))
+            .iter(|| store.range_read(&file_loc, &range))
     });
 }
 

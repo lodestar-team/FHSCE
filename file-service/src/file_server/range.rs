@@ -89,7 +89,7 @@ pub async fn serve_file_range(
         start,
         end: start + length,
     };
-    let content = store.range_read(file_name, &range).await?;
+    let content = store.range_read(&metadata.location, &range).await?;
 
     let transferred_bytes = crate::metrics::TRANSFERRED_BYTES.with_label_values(&[file_name]);
     transferred_bytes.set(length.try_into().unwrap());
