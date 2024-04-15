@@ -1,16 +1,9 @@
-use async_graphql::{Context, EmptyMutation, EmptySubscription, Object, Schema, SimpleObject};
+use async_graphql::{Context, EmptyMutation, EmptySubscription, Object, Schema};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
 use axum::extract::State;
 
-use serde::{Deserialize, Serialize};
-
 use crate::file_server::ServerContext;
-
-#[derive(Clone, Debug, Serialize, Deserialize, SimpleObject)]
-pub struct GraphQlCostModel {
-    pub deployment: String,
-    pub price_per_byte: f64,
-}
+use crate::graphql_types::GraphQlCostModel;
 
 #[derive(Default)]
 pub struct PriceQuery;
