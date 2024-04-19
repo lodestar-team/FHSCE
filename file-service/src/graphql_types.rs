@@ -10,10 +10,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, SimpleObject)]
 pub struct GraphQlBundleManifest {
     pub files: Vec<GraphQlFileMetaInfo>,
-    pub file_type: String,
-    pub spec_version: String,
-    pub description: String,
-    pub chain_id: String,
+    pub file_type: Option<String>,
+    pub spec_version: Option<String>,
+    pub description: Option<String>,
+    pub chain_id: Option<String>,
 }
 
 impl From<BundleManifest> for GraphQlBundleManifest {

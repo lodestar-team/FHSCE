@@ -98,10 +98,10 @@ pub fn simple_bundle() -> Bundle {
         ipfs_hash: "QmUqx9seQqAuCRi3uEPfa1rcS61rKhM7JxtraL81jvY6dZ".to_string(),
         manifest: BundleManifest {
             files: [meta_info.clone()].to_vec(),
-            file_type: "flatfiles".to_string(),
-            spec_version: "0.0.0".to_string(),
-            description: "random flatfiles".to_string(),
-            chain_id: "0".to_string(),
+            file_type: Some("flatfiles".to_string()),
+            spec_version: Some("0.0.0".to_string()),
+            description: Some("random flatfiles".to_string()),
+            chain_id: Some("0".to_string()),
             block_range: BlockRange {
                 start_block: None,
                 end_block: None,

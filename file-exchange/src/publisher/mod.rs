@@ -1,4 +1,4 @@
-use crate::config::PublisherArgs;
+use crate::config::{BundleArgs, PublisherArgs};
 use crate::errors::Error;
 use crate::manifest::store::Store;
 use crate::manifest::{
@@ -49,7 +49,7 @@ impl ManifestPublisher {
     pub async fn hash_and_publish_files(&self) -> Result<Vec<FileMetaInfo>, Error> {
         let mut root_hashes: Vec<FileMetaInfo> = Vec::new();
 
-        let file_names = &self.config.file_names;
+        let file_names = &self.config.filenames;
         tracing::trace!(
             file_names = tracing::field::debug(&file_names),
             "hash_and_publish_files",
@@ -68,17 +68,18 @@ impl ManifestPublisher {
 
     pub fn construct_bundle_manifest(
         &self,
+        bundle_args: &BundleArgs,
         file_meta_info: Vec<FileMetaInfo>,
     ) -> Result<String, Error> {
         let manifest = BundleManifest {
             files: file_meta_info,
-            file_type: self.config.file_type.clone(),
-            spec_version: self.config.bundle_version.clone(),
-            description: self.config.description.clone(),
-            chain_id: self.config.chain_id.clone(),
+            file_type: bundle_args.file_type.clone(),
+            spec_version: bundle_args.bundle_version.clone(),
+            description: bundle_args.description.clone(),
+            chain_id: bundle_args.chain_id.clone(),
             block_range: BlockRange {
-                start_block: self.config.start_block,
-                end_block: self.config.end_block,
+                start_block: bundle_args.start_block,
+                end_block: bundle_args.end_block,
             },
         };
         let yaml = serde_yaml::to_string(&manifest).map_err(Error::YamlError)?;
@@ -97,41 +98,31 @@ impl ManifestPublisher {
     }
 
     pub async fn publish(&self) -> Result<Vec<String>, Error> {
-        match self.config.manifest_type {
-            crate::config::ManifestType::Bundle => {
-                let meta_info = self.hash_and_publish_files().await?;
+        let meta_info = self.hash_and_publish_files().await?;
 
-                tracing::trace!(
-                    meta_info = tracing::field::debug(&meta_info),
-                    "hash_and_publish_files",
-                );
-                match self.construct_bundle_manifest(meta_info) {
-                    Ok(manifest_yaml) => {
-                        let ipfs_hash = self.publish_bundle_manifest(&manifest_yaml).await?;
-                        tracing::info!(
-                            "Published bundle manifest to IPFS with hash: {}",
-                            &ipfs_hash
-                        );
-                        Ok(vec![ipfs_hash])
-                    }
-                    Err(e) => Err(e),
+        tracing::trace!(
+            meta_info = tracing::field::debug(&meta_info),
+            "hash_and_publish_files",
+        );
+
+        // Files are published, now publish the bundle if specified
+        if let Some(bundle_args) = &self.config.bundle {
+            match self.construct_bundle_manifest(bundle_args, meta_info) {
+                Ok(manifest_yaml) => {
+                    let ipfs_hash = self.publish_bundle_manifest(&manifest_yaml).await?;
+                    tracing::info!(
+                        "Published bundle manifest to IPFS with hash: {}",
+                        &ipfs_hash
+                    );
+                    Ok(vec![ipfs_hash])
                 }
+                Err(e) => Err(e),
             }
-            crate::config::ManifestType::File => {
-                let file_names = &self.config.file_names;
-                let mut root_hashes: Vec<String> = Vec::new();
-                tracing::trace!(
-                    file_names = tracing::field::debug(&file_names),
-                    "hash_and_publish_files",
-                );
-
-                for file_name in file_names {
-                    let ipfs_hash = self.hash_and_publish_file(file_name, None).await?.hash;
-                    root_hashes.push(ipfs_hash);
-                }
-
-                Ok(root_hashes)
-            }
+        } else {
+            Ok(meta_info
+                .into_iter()
+                .map(|m| m.hash.clone())
+                .collect::<Vec<String>>())
         }
     }
 
@@ -210,7 +201,9 @@ mod tests {
             hash,
         }];
 
-        if let Ok(manifest_yaml) = builder.construct_bundle_manifest(meta_info) {
+        if let Ok(manifest_yaml) =
+            builder.construct_bundle_manifest(&BundleArgs::default(), meta_info)
+        {
             if let Ok(ipfs_hash) = builder.publish_bundle_manifest(&manifest_yaml).await {
                 tracing::info!("Published bundle manifest to IPFS with hash: {}", ipfs_hash);
             }

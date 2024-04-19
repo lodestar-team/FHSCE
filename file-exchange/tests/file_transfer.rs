@@ -5,7 +5,7 @@ mod tests {
     use tokio::fs;
 
     use file_exchange::{
-        config::{DownloaderArgs, LocalDirectory, ManifestType},
+        config::{DownloaderArgs, LocalDirectory},
         download_client::Downloader,
         manifest::ipfs::IpfsClient,
         test_util::server_ready,
@@ -42,7 +42,6 @@ mod tests {
                 main_dir: main_dir.to_str().unwrap().to_string(),
             }),
             ipfs_hash: target_file,
-            manifest_type: ManifestType::File,
             indexer_endpoints: [
                 "http://localhost:5679".to_string(),
                 "http://localhost:5677".to_string(),

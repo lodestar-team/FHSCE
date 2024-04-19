@@ -20,10 +20,10 @@ use crate::{
 #[derive(Serialize, Deserialize, Clone, Debug, SimpleObject)]
 pub struct BundleManifest {
     pub files: Vec<FileMetaInfo>,
-    pub file_type: String,
-    pub spec_version: String,
-    pub description: String,
-    pub chain_id: String,
+    pub file_type: Option<String>,
+    pub spec_version: Option<String>,
+    pub description: Option<String>,
+    pub chain_id: Option<String>,
     pub block_range: BlockRange,
     // pub identifier: String,
     // pub publisher_url: String,
@@ -45,23 +45,6 @@ pub struct FileManifest {
     pub chunk_size: u64,
     pub chunk_hashes: Vec<String>,
 }
-
-// #[allow(dead_code)]
-// impl FileManifest {
-//     pub fn new(read_dir: &str, file_name: &str, chunk_size: u64) -> Result<FileManifest, Error> {
-//         let file_path = format_path(read_dir, file_name);
-//         // let merkle_root = hex::encode(merkle_tree.root());
-//         // let chunk_hashes: Vec<String> = merkle_tree.nodes().iter().map(hex::encode).collect();
-//         // let (total_bytes, chunks) = chunk_file(Path::new(&file_path), chunk_size)?;
-//         let chunk_hashes: Vec<String> = chunks.iter().map(|c| hash_chunk(c)).collect();
-
-//         Ok(FileManifest {
-//             total_bytes,
-//             chunk_size,
-//             chunk_hashes,
-//         })
-//     }
-// }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, SimpleObject)]
 pub struct FileManifestMeta {
@@ -89,25 +72,6 @@ pub struct BlockRange {
     pub start_block: Option<u64>,
     pub end_block: Option<u64>,
 }
-
-// #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize, Default)]
-// pub enum FileType {
-//     #[default]
-//     SqlSnapshot,
-//     Flatfiles,
-// }
-
-// impl FromStr for FileType {
-//     type Err = &'static str;
-
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         match s {
-//             "sql_snapshot" => Ok(FileType::SqlSnapshot),
-//             "flatfiles" => Ok(FileType::Flatfiles),
-//             _ => Err("Invalid file type"),
-//         }
-//     }
-// }
 
 /// Validate the bundle configurations at initialization
 pub fn validate_bundle_entries(entries: Vec<String>) -> Result<Vec<(String, Path)>, Error> {

@@ -10,6 +10,7 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::config::{ObjectStoreArgs, StorageMethod};
 use crate::manifest::{verify_chunk, Error, FileManifestMeta, LocalBundle};
@@ -44,6 +45,35 @@ impl Store {
             read_concurrency: 16,
             write_concurrency: 8,
         })
+    }
+
+    /// Prepare a file for writing into
+    pub fn prepare_write(&self, filename: &str) -> Arc<Mutex<File>> {
+        let file = match &self.storage_method {
+            StorageMethod::LocalFiles(directory) => File::create(std::path::Path::new(
+                &(directory.main_dir.clone() + "/" + filename),
+            ))
+            .unwrap_or_else(|_| {
+                panic!(
+                    "Cannot create file for writing the output at directory {}",
+                    directory.main_dir
+                )
+            }),
+            StorageMethod::ObjectStorage(store_args) => {
+                tracing::debug!("Created tmp directory");
+                File::create(std::path::Path::new(
+                    &("tmp/".to_owned() + &store_args.bucket + "/" + filename),
+                ))
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "Cannot create file for writing the output at tmp/{}",
+                        &store_args.bucket.clone()
+                    )
+                })
+            }
+        };
+
+        Arc::new(Mutex::new(file))
     }
 
     /// Create a local store at the directory
@@ -479,7 +509,6 @@ mod tests {
         let bucket = env::var("BUCKET").expect("Bucket env var");
         let access_key_id = env::var("ACCESS_KEY_ID").expect("Access key id env var");
         let secret_key = env::var("SECRET_ACCESS_KEY").expect("Secret access key env var");
-        let _endpoint = "s3://".to_string() + &bucket;
         let s3_endpoint = env::var("S3_URL").expect("S3 URL env var");
 
         let store_config = ObjectStoreArgs {
@@ -506,7 +535,6 @@ mod tests {
         let bucket = env::var("BUCKET").expect("Bucket env var");
         let access_key_id = env::var("ACCESS_KEY_ID").expect("Access key id env var");
         let secret_key = env::var("SECRET_ACCESS_KEY").expect("Secret access key env var");
-        let _endpoint = "s3://".to_string() + &bucket;
         let s3_endpoint = env::var("S3_URL").expect("S3 URL env var");
 
         let store_config = ObjectStoreArgs {

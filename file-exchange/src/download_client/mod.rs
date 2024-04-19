@@ -87,25 +87,22 @@ pub struct OnChainSigner {
 
 impl Downloader {
     pub async fn new(ipfs_client: IpfsClient, args: DownloaderArgs) -> Self {
-        let target_manifest = match args.manifest_type {
-            crate::config::ManifestType::Bundle => {
-                let bundle = read_bundle(&ipfs_client, &args.ipfs_hash)
-                    .await
-                    .expect("Read bundle manifest");
-                TargetManifest::BundleManifest(bundle)
-            }
-            crate::config::ManifestType::File => {
-                let file_manifest = fetch_file_manifest_from_ipfs(&ipfs_client, &args.ipfs_hash)
-                    .await
-                    .expect("Read File manifest");
-                TargetManifest::FileManifest(FileManifestMeta {
-                    meta_info: FileMetaInfo {
-                        name: args.ipfs_hash.clone(),
-                        hash: args.ipfs_hash.clone(),
-                    },
-                    file_manifest,
-                })
-            }
+        // Automatically decipher if the desired download is a bundle or a file
+        let as_bundle = read_bundle(&ipfs_client, &args.ipfs_hash).await;
+
+        let target_manifest = if let Ok(bundle) = as_bundle {
+            TargetManifest::BundleManifest(bundle)
+        } else {
+            let file_manifest = fetch_file_manifest_from_ipfs(&ipfs_client, &args.ipfs_hash)
+                .await
+                .expect("The download ipfs_hash doesn't fit the manifest types");
+            TargetManifest::FileManifest(FileManifestMeta {
+                meta_info: FileMetaInfo {
+                    name: args.ipfs_hash.clone(),
+                    hash: args.ipfs_hash.clone(),
+                },
+                file_manifest,
+            })
         };
 
         let payment = if let Some(token) = &args.free_query_auth_token {
@@ -318,34 +315,7 @@ impl Downloader {
         // If storage method is the local file system, directly write the ranges
         // If remote object storage, first write ranges to a tmp file to complete the object
         // Open the output file
-        let file = match &self.store.storage_method {
-            StorageMethod::LocalFiles(directory) => {
-                let file = File::create(Path::new(
-                    &(directory.main_dir.clone() + "/" + &meta.meta_info.name),
-                ))
-                .unwrap_or_else(|_| {
-                    panic!(
-                        "Cannot create file for writing the output at directory {}",
-                        &directory.main_dir
-                    )
-                });
-
-                Arc::new(Mutex::new(file))
-            }
-            StorageMethod::ObjectStorage(store) => {
-                let file = File::create(Path::new(
-                    &("tmp/".to_owned() + &store.bucket + "/" + &meta.meta_info.name),
-                ))
-                .unwrap_or_else(|_| {
-                    panic!(
-                        "Cannot create file for writing the output at tmp/{}",
-                        &store.bucket.clone()
-                    )
-                });
-                tracing::debug!("Created tmp directory");
-                Arc::new(Mutex::new(file))
-            }
-        };
+        let file = self.store.prepare_write(&meta.meta_info.name);
 
         while !self.remaining_chunks(&meta.meta_info.hash).is_empty() {
             // Wait for all chunk tasks to complete and collect the results
