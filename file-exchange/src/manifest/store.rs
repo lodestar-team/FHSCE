@@ -479,7 +479,6 @@ mod tests {
             main_dir: main_directory.to_string(),
         }))
         .unwrap();
-        let _local_path = Path::from("");
         let local = LocalBundle {
             bundle: bundle.clone(),
             local_path: Path::from(""),
