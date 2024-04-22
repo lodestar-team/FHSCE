@@ -123,6 +123,11 @@ mutation{
   publishAndServeBundle(filenames: ["0017686116-5331aab87811944d-f8d105f60fa2e78d-17686021-default.dbin", "0017686115-f8d105f60fa2e78d-7d23a3e458beaff1-17686021-default.dbin"]) {
     ipfsHash
   }
+  
+  # Create, publish, and serve a bundle
+  publishAndServeBundle(filenames: ["0017686116-5331aab87811944d-f8d105f60fa2e78d-17686021-default.dbin", "0017686115-f8d105f60fa2e78d-7d23a3e458beaff1-17686021-default.dbin"]) {
+    ipfsHash
+  }
 }
 ```
 with configuration 
