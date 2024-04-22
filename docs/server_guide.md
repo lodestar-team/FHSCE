@@ -79,8 +79,6 @@ cargo run -p file-service -- --config ./template.toml
 
 5. Access services via the additional endpoints:
 
-
-
 **Cost and Status API**
 
 Schema is provided at the `server-[]-schema.json`. One can access the graphql playground by navigating to the server's endpoint at `/files-status` or `/files-cost`.
@@ -115,8 +113,14 @@ Available mutations you can make, in addition to Status queries, are to add and 
 Curl query will be similar to the above examples, here we provide an example in the GraphQL version
 ```
 mutation{
+  # Add an existing bundle
   addBundles(deployments:["QmeD3dRVV6Gs84TRwiNj3tLt9mBEMVqy3GoWm7WN8oDzGz", "QmeaPp764FjQjPB66M9ijmQKmLhwBpHQhA7dEbH2FA1j3v"], 
     locations:["/", "/"]){
+    ipfsHash
+  }
+  
+  # Create, publish, and serve a bundle
+  publishAndServeBundle(filenames: ["0017686116-5331aab87811944d-f8d105f60fa2e78d-17686021-default.dbin", "0017686115-f8d105f60fa2e78d-7d23a3e458beaff1-17686021-default.dbin"]) {
     ipfsHash
   }
 }
