@@ -154,7 +154,7 @@ impl Store {
         Ok(result)
     }
 
-    pub async fn multipart_read(
+    pub async fn multipart_read_by_name_and_prefix(
         &self,
         file_name: &str,
         file_path: Option<&Path>,
@@ -189,6 +189,34 @@ impl Store {
         let result = self
             .store
             .get_ranges(&location, ranges.as_slice())
+            .await
+            .unwrap();
+
+        Ok(result)
+    }
+
+    pub async fn multipart_read(
+        &self,
+        object_meta: &ObjectMeta,
+        chunk_size: Option<usize>,
+    ) -> Result<Vec<Bytes>, Error> {
+        let step = chunk_size.unwrap_or({
+            let s = object_meta.size / self.read_concurrency;
+            if s > 0 {
+                s
+            } else {
+                object_meta.size
+            }
+        });
+        let ranges = (0..(object_meta.size / step + 1))
+            .map(|i| std::ops::Range::<usize> {
+                start: i * step,
+                end: ((i + 1) * step).min(object_meta.size),
+            })
+            .collect::<Vec<std::ops::Range<usize>>>();
+        let result = self
+            .store
+            .get_ranges(&object_meta.location, ranges.as_slice())
             .await
             .unwrap();
 
@@ -243,19 +271,19 @@ impl Store {
             .map_err(Error::ObjectStoreError)
     }
 
+    /// Create file manifests from a prefix
     pub async fn file_manifest(
         &self,
-        file_name: &str,
-        prefix: Option<&Path>,
+        object_meta: &ObjectMeta,
         chunk_size: Option<usize>,
     ) -> Result<FileManifest, Error> {
-        let parts = self.multipart_read(file_name, prefix, chunk_size).await?;
+        let parts = self.multipart_read(object_meta, chunk_size).await?;
         let total_bytes = parts.iter().map(|b| b.len() as u64).sum();
         let byte_size_used = parts
             .first()
             .ok_or(Error::ChunkInvalid(format!(
-                "No chunk produced from object store {} with prefix {:#?}, with chunk size config of {:#?}",
-                file_name, prefix, chunk_size
+                "No chunk produced from object store for object meta {:#?}, with chunk size config of {:#?}",
+                object_meta, chunk_size
             )))?
             .len();
         let chunk_hashes = parts.iter().map(|c| hash_chunk(c)).collect();
@@ -401,9 +429,14 @@ mod tests {
             .await;
         assert!(write_res.is_ok());
 
+        let object_meta = object_store
+            .find_object(new_file_name, None)
+            .await
+            .expect("find object");
+
         // Read with fixed concurrency
         let read_res: Vec<Bytes> = object_store
-            .multipart_read(new_file_name, None, Some(CHUNK_SIZE.try_into().unwrap()))
+            .multipart_read(&object_meta, Some(CHUNK_SIZE.try_into().unwrap()))
             .await
             .unwrap();
         let flattened_vec: Vec<u8> = read_res.into_iter().flat_map(|b| b.to_vec()).collect();
@@ -422,8 +455,12 @@ mod tests {
         assert!(write_res.is_ok());
 
         // Read with adjusted concurrency
+        let object_meta = object_store
+            .find_object(new_file_name, None)
+            .await
+            .expect("find object");
         let read_res: Vec<Bytes> = object_store
-            .multipart_read(new_file_name, None, None)
+            .multipart_read(&object_meta, None)
             .await
             .unwrap();
         let flattened_vec: Vec<u8> = read_res.into_iter().flat_map(|b| b.to_vec()).collect();

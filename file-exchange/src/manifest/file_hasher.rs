@@ -75,12 +75,20 @@ mod tests {
         }))
         .unwrap();
         // produce the same file manifest
+        let object_meta = store
+            .find_object(file_name1, None)
+            .await
+            .expect("find object");
         let file_manifest1 = store
-            .file_manifest(file_name1, None, Some(CHUNK_SIZE as usize))
+            .file_manifest(&object_meta, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
+        let object_meta2 = store
+            .find_object(file_name2, None)
+            .await
+            .expect("find object");
         let file_manifest2 = store
-            .file_manifest(file_name2, None, Some(CHUNK_SIZE as usize))
+            .file_manifest(&object_meta2, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
 
@@ -109,12 +117,20 @@ mod tests {
             main_dir: readdir1.to_string(),
         }))
         .unwrap();
+        let object_meta = store
+            .find_object(file_name1, None)
+            .await
+            .expect("find object");
         let file_manifest1 = store
-            .file_manifest(file_name1, None, Some(CHUNK_SIZE as usize))
+            .file_manifest(&object_meta, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
+        let object_meta2 = store
+            .find_object(file_name2, None)
+            .await
+            .expect("find object");
         let file_manifest2 = store
-            .file_manifest(file_name2, None, Some(CHUNK_SIZE as usize))
+            .file_manifest(&object_meta2, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
 
@@ -139,12 +155,16 @@ mod tests {
             main_dir: readdir.to_string(),
         }))
         .unwrap();
+        let object_meta = store
+            .find_object(file_name, None)
+            .await
+            .expect("find object");
         let file_manifest1 = store
-            .file_manifest(file_name, None, Some(CHUNK_SIZE as usize))
+            .file_manifest(&object_meta, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
         let file_manifest2 = store
-            .file_manifest(file_name, None, Some(CHUNK_SIZE as usize))
+            .file_manifest(&object_meta, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
 
@@ -167,8 +187,12 @@ mod tests {
             main_dir: readdir1.to_string(),
         }))
         .unwrap();
+        let object_meta = store
+            .find_object(file_name1, None)
+            .await
+            .expect("find object");
         let bytes_vec = store
-            .multipart_read(file_name1, None, Some(CHUNK_SIZE as usize))
+            .multipart_read(&object_meta, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
         let chunks1: Vec<Vec<u8>> = bytes_vec.into_iter().map(|bytes| bytes.to_vec()).collect();
@@ -182,12 +206,20 @@ mod tests {
         let file_name2 = path2.file_name().unwrap().to_str().unwrap();
 
         // produce different file manifest
+        let object_meta = store
+            .find_object(file_name1, None)
+            .await
+            .expect("find object");
         let file_manifest1 = store
-            .file_manifest(file_name1, None, Some(CHUNK_SIZE as usize))
+            .file_manifest(&object_meta, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
+        let object_meta2 = store
+            .find_object(file_name2, None)
+            .await
+            .expect("find object");
         let file_manifest2 = store
-            .file_manifest(file_name2, None, Some(CHUNK_SIZE as usize))
+            .file_manifest(&object_meta2, Some(CHUNK_SIZE as usize))
             .await
             .unwrap();
 

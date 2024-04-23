@@ -329,6 +329,13 @@ pub struct PublisherArgs {
         help = "Name for the files to publish"
     )]
     pub filenames: Vec<String>,
+    #[arg(
+        long,
+        value_name = "PREFIXES",
+        env = "PREFIXES",
+        help = "Publish all files in the folders/prefixes (publication takes union of folders and filenames)"
+    )]
+    pub prefixes: Vec<String>,
     #[clap(flatten)]
     pub bundle: Option<BundleArgs>,
 }

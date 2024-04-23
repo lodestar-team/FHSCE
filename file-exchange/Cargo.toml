@@ -97,9 +97,5 @@ name = "validate_local"
 harness = false
 
 [[bench]]
-name = "new_file_manifest"
-harness = false
-
-[[bench]]
 name = "hash_chunk"
 harness = false

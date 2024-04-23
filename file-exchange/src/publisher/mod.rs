@@ -6,6 +6,7 @@ use crate::manifest::{
     BlockRange, BundleManifest, FileMetaInfo,
 };
 use object_store::path::Path;
+use object_store::ObjectMeta;
 use serde_yaml::to_string;
 
 pub struct ManifestPublisher {
@@ -28,10 +29,9 @@ impl ManifestPublisher {
     /// Takes file_path, create file_manifest, build merkle tree, publish, write to output
     pub async fn hash_and_publish_file(
         &self,
-        file_name: &str,
-        file_prefix: Option<&Path>,
+        object_meta: &ObjectMeta,
     ) -> Result<AddResponse, Error> {
-        let yaml_str = self.write_file_manifest(file_name, file_prefix).await?;
+        let yaml_str = self.write_file_manifest(object_meta).await?;
 
         let added: AddResponse = self
             .ipfs_client
@@ -48,17 +48,43 @@ impl ManifestPublisher {
 
     pub async fn hash_and_publish_files(&self) -> Result<Vec<FileMetaInfo>, Error> {
         let mut root_hashes: Vec<FileMetaInfo> = Vec::new();
+        let mut to_publish: Vec<ObjectMeta> = Vec::new();
+        // grab all files
+        for prefix in &self.config.prefixes {
+            let files = self
+                .store
+                .list(Some(&Path::from(prefix.to_string())))
+                .await
+                .unwrap_or_default();
+            to_publish = union_obj_metas(to_publish, files);
+        }
+        for filename in &self.config.filenames {
+            let object_meta =
+                self.store
+                    .find_object(filename, None)
+                    .await
+                    .ok_or(Error::DataUnavailable(format!(
+                        "Did not find object {:?}",
+                        filename,
+                    )))?;
+            if !to_publish.contains(&object_meta) {
+                to_publish.push(object_meta);
+            }
+        }
 
-        let file_names = &self.config.filenames;
         tracing::trace!(
-            file_names = tracing::field::debug(&file_names),
-            "hash_and_publish_files",
+            to_publish = tracing::field::debug(&to_publish),
+            "Publish these files/objects",
         );
 
-        for file_name in file_names {
-            let ipfs_hash = self.hash_and_publish_file(file_name, None).await?.hash;
+        for object_meta in to_publish {
+            let ipfs_hash = self.hash_and_publish_file(&object_meta).await?.hash;
             root_hashes.push(FileMetaInfo {
-                name: file_name.to_string(),
+                name: object_meta
+                    .location
+                    .filename()
+                    .unwrap_or_default()
+                    .to_string(),
                 hash: ipfs_hash,
             });
         }
@@ -126,29 +152,41 @@ impl ManifestPublisher {
         }
     }
 
-    // pub async fn object_store_write_file_manifest(&self, file_name: &str) -> Result<String, Error> {
-    pub async fn write_file_manifest(
-        &self,
-        file_name: &str,
-        file_prefix: Option<&Path>,
-    ) -> Result<String, Error> {
+    // publish by prefixes
+    pub async fn write_file_manifest(&self, object_meta: &ObjectMeta) -> Result<String, Error> {
         let file_manifest = self
             .store
-            .file_manifest(
-                file_name,
-                file_prefix,
-                Some(self.config.chunk_size as usize),
-            )
+            .file_manifest(object_meta, Some(self.config.chunk_size as usize))
             .await?;
 
         tracing::trace!(
             file = tracing::field::debug(&file_manifest),
-            "Created file manifest"
+            object_meta = tracing::field::debug(&object_meta),
+            "Created file manifest for the object"
         );
 
         let yaml = to_string(&file_manifest).map_err(Error::YamlError)?;
         Ok(yaml)
     }
+}
+
+fn union_obj_metas(vec1: Vec<ObjectMeta>, vec2: Vec<ObjectMeta>) -> Vec<ObjectMeta> {
+    let mut result = vec![];
+    fn contains(result: &[ObjectMeta], meta: &ObjectMeta) -> bool {
+        result.iter().any(|item| item == meta)
+    }
+
+    for item in vec1.into_iter() {
+        if !contains(&result, &item) {
+            result.push(item);
+        }
+    }
+    for item in vec2.into_iter() {
+        if !contains(&result, &item) {
+            result.push(item);
+        }
+    }
+    result
 }
 
 #[cfg(test)]
@@ -170,7 +208,12 @@ mod tests {
         let name = "example-create-17686085.dbin";
 
         // Hash and publish a single file
-        let file_manifest_yaml = publisher.write_file_manifest(name, None).await;
+        let object_meta = publisher
+            .store
+            .find_object(name, None)
+            .await
+            .expect("find object");
+        let file_manifest_yaml = publisher.write_file_manifest(&object_meta).await;
 
         assert!(file_manifest_yaml.is_ok());
     }
@@ -185,12 +228,17 @@ mod tests {
             }),
             ..Default::default()
         };
-        let builder = ManifestPublisher::new(client, args);
+        let publisher = ManifestPublisher::new(client, args);
         let name = "example-create-17686085.dbin";
 
+        let object_meta = publisher
+            .store
+            .find_object(name, None)
+            .await
+            .expect("find object");
         // Hash and publish a single file
-        let hash = builder
-            .hash_and_publish_file(name, None)
+        let hash = publisher
+            .hash_and_publish_file(&object_meta)
             .await
             .unwrap()
             .hash;
@@ -202,9 +250,9 @@ mod tests {
         }];
 
         if let Ok(manifest_yaml) =
-            builder.construct_bundle_manifest(&BundleArgs::default(), meta_info)
+            publisher.construct_bundle_manifest(&BundleArgs::default(), meta_info)
         {
-            if let Ok(ipfs_hash) = builder.publish_bundle_manifest(&manifest_yaml).await {
+            if let Ok(ipfs_hash) = publisher.publish_bundle_manifest(&manifest_yaml).await {
                 tracing::info!("Published bundle manifest to IPFS with hash: {}", ipfs_hash);
             }
         }
