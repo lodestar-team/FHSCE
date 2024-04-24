@@ -35,7 +35,7 @@ RUN set -x \
 COPY --from=build-image /file-service/target/release/file-service /file-service/target/release/file-service
 RUN upx --overlay=strip --best /file-service/target/release/file-service
 
-FROM gcr.io/distroless/cc AS runtime
+FROM debian:bullseye-slim as runtime
 COPY --from=build-image /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=build-image /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build-image /etc/passwd /etc/passwd
