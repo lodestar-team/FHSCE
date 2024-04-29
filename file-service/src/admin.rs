@@ -129,7 +129,7 @@ impl StatusMutation {
         &self,
         ctx: &Context<'_>,
         filenames: Vec<String>,
-        prefixes: Vec<String>,
+        prefixes: Option<Vec<String>>,
         chunk_size: Option<u64>,
         bundle_name: Option<String>,
         file_type: Option<String>,
@@ -159,7 +159,7 @@ impl StatusMutation {
             PublisherArgs {
                 chunk_size: chunk_size.unwrap_or(1048576),
                 filenames,
-                prefixes,
+                prefixes: prefixes.unwrap_or_default(),
                 bundle: Some(BundleArgs {
                     bundle_name,
                     file_type,
@@ -518,7 +518,7 @@ impl StatusMutation {
         &self,
         ctx: &Context<'_>,
         filenames: Vec<String>,
-        prefixes: Vec<String>,
+        prefixes: Option<Vec<String>>,
         chunk_size: Option<u64>,
     ) -> Result<Vec<GraphQlFileManifestMeta>, ServerError> {
         if ctx.data_opt::<String>()
@@ -541,7 +541,7 @@ impl StatusMutation {
             PublisherArgs {
                 chunk_size: chunk_size.unwrap_or(1048576),
                 filenames: filenames.clone(),
-                prefixes: prefixes.clone(),
+                prefixes: prefixes.unwrap_or_default(),
                 storage_method: ctx
                     .data_unchecked::<AdminContext>()
                     .state

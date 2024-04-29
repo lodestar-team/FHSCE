@@ -203,7 +203,8 @@ impl Downloader {
                         .entry(file_manifest_meta.meta_info.hash.clone())
                         .or_default();
                     let chunk_size = file_manifest_meta.file_manifest.chunk_size;
-                    for i in 0..(file_manifest_meta.file_manifest.total_bytes / chunk_size + 1) {
+                    for i in 0..(file_manifest_meta.file_manifest.total_bytes).div_ceil(chunk_size)
+                    {
                         chunks_set.insert(i);
                     }
                 }

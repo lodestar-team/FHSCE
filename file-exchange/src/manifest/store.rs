@@ -134,11 +134,10 @@ impl Store {
     }
 
     pub async fn range_read(&self, file_loc: &Path, range: &Range<usize>) -> Result<Bytes, Error> {
-        Ok(self
-            .store
+        self.store
             .get_range(file_loc, range.to_owned())
             .await
-            .unwrap())
+            .map_err(Error::ObjectStoreError)
     }
 
     pub async fn read(&self, location: &str) -> Result<File, Error> {
@@ -175,7 +174,7 @@ impl Store {
                 object_meta.size
             }
         });
-        let ranges = (0..(object_meta.size / step + 1))
+        let ranges = (0..(object_meta.size).div_ceil(step))
             .map(|i| std::ops::Range::<usize> {
                 start: i * step,
                 end: ((i + 1) * step).min(object_meta.size),
@@ -208,7 +207,7 @@ impl Store {
                 object_meta.size
             }
         });
-        let ranges = (0..(object_meta.size / step + 1))
+        let ranges = (0..object_meta.size.div_ceil(step))
             .map(|i| std::ops::Range::<usize> {
                 start: i * step,
                 end: ((i + 1) * step).min(object_meta.size),
@@ -245,7 +244,7 @@ impl Store {
             }
         });
 
-        for i in 0..(size / step + 1) {
+        for i in 0..size.div_ceil(step) {
             let buf = &bytes[i * step..((i + 1) * step).min(size)];
             write.write_all(buf).await.unwrap();
         }
@@ -337,8 +336,9 @@ impl Store {
         tracing::trace!(file_meta = tracing::field::debug(&metadata), "Found file");
 
         // loop through file manifest byte range
-        let chunk_ops: Vec<_> = (0..(file_manifest.total_bytes / file_manifest.chunk_size + 1))
+        let chunk_ops: Vec<_> = (0..(file_manifest.total_bytes).div_ceil(file_manifest.chunk_size))
             .map(|i| {
+                tracing::trace!(index = i, "validate chunk");
                 let start = i * file_manifest.chunk_size;
                 let end = (u64::min(start + file_manifest.chunk_size, file_manifest.total_bytes)
                     - 1) as usize;
