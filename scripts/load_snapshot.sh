@@ -36,7 +36,7 @@ echo "ID: ${schema_id}"
 echo "sgdNNN: ${sgdNNN}"
 
 # Customize the snapshot file to use the identifier assigned locally; and modifies the owner
-sed -i "s/sgd[0-9]*/${sgdNNN}/g" ${SNAPSHOT_FILE}
+sed -i "s/sgd\([0-9]\+\|NNN\)/${sgdNNN}/g" ${SNAPSHOT_FILE}
 sed -i "s/OWNER TO [^;]*;/OWNER TO ${DB_USER};/g" ${SNAPSHOT_FILE}
 
 # Drop local schema and load in remote

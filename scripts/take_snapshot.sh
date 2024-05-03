@@ -42,6 +42,9 @@ FILE_NAME="snapshot_${IPFS_HASH}.sql"
 SNAPSHOT_ACTION=$(PGPASSWORD=$DB_PSWD pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME -n $sgdNNN > ${SERVER_STORE}/${FILE_NAME})
 echo "Action result: ${SNAPSHOT_ACTION}"
 echo "Snapshot created: ${FILE_NAME}"
+# Normalize the snapshot file to use placeholder identifier and owner
+sed -i -E "s/sgd[0-9]+/sgdNNN/g" ${SERVER_STORE}/${FILE_NAME}
+sed -i "s/OWNER TO [^;]*;/OWNER TO graphuser;/g" ${SERVER_STORE}/${FILE_NAME}
 
 # Query metadata data
 METADATA_QUERY="SELECT deployment, failed, synced, latest_ethereum_block_hash, latest_ethereum_block_number, entity_count, graft_base, graft_block_hash, graft_block_number, fatal_error, non_fatal_errors, health, reorg_count, current_reorg_depth, max_reorg_depth, last_healthy_ethereum_block_hash, last_healthy_ethereum_block_number, id, firehose_cursor, debug_fork, earliest_block_number FROM subgraphs.subgraph_deployment WHERE deployment = '${IPFS_HASH}';"
