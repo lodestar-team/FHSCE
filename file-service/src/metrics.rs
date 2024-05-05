@@ -1,14 +1,10 @@
 use autometrics::encode_global_metrics;
-use axum::http::StatusCode;
-use axum::routing::get;
-// use axum::{Router, Server};
-use axum::Router;
-use axum::serve;
-use tokio::net::TcpListener;
+use axum::{http::StatusCode, routing::get, serve, Router};
 use core::net::SocketAddr;
 use once_cell::sync::Lazy;
 use prometheus::{core::Collector, Registry};
 use prometheus::{HistogramOpts, HistogramVec, IntGaugeVec, Opts};
+use tokio::net::TcpListener;
 
 use crate::config::ServerArgs;
 
@@ -86,12 +82,6 @@ pub fn serve_metrics(config: &ServerArgs) {
     let app = Router::new().route("/metrics", get(get_metrics));
     let metrics_addr = config.metrics_host_and_port.unwrap();
     tokio::spawn(async move {
-        // Server::bind(&metrics_addr)
-        //     .serve(app.into_make_service())
-        //     .await
-        //     .expect("Failed to initialize metrics server")
-        
-
         let listener = TcpListener::bind(&metrics_addr)
             .await
             .expect("Failed to bind to file-service metrics");

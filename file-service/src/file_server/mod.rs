@@ -1,6 +1,7 @@
 // #![cfg(feature = "acceptor")]
 use axum::{
     async_trait,
+    http::StatusCode,
     response::{IntoResponse, Response},
 };
 
@@ -25,7 +26,6 @@ use file_exchange::util::public_key;
 use file_exchange::{errors::Error, manifest::store::Store};
 // #![cfg(feature = "acceptor")]
 // use hyper_rustls::TlsAcceptor;
-use hyper::StatusCode;
 
 pub mod cost;
 pub mod range;
@@ -201,11 +201,11 @@ impl IntoResponse for FileServiceError {
 
 // #[derive(Debug)]
 pub struct FileServiceResponse {
-    inner: hyper::Response<hyper::Body>,
+    inner: axum::response::Response<axum::body::Body>,
 }
 
 impl IndexerServiceResponse for FileServiceResponse {
-    type Data = hyper::Response<hyper::Body>;
+    type Data = axum::response::Response<axum::body::Body>;
     type Error = FileServiceError; // not used
 
     fn is_attestable(&self) -> bool {

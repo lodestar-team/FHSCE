@@ -1,6 +1,10 @@
 // #![cfg(feature = "acceptor")]
-use hyper::header::{CONTENT_LENGTH, CONTENT_RANGE};
-use hyper::{Body, Response, StatusCode};
+use crate::file_server::StatusCode;
+use axum::{
+    body::Body,
+    http::header::{CONTENT_LENGTH, CONTENT_RANGE},
+    response::Response,
+};
 
 use object_store::path::Path;
 use std::io::Read;

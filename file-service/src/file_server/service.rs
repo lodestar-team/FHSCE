@@ -5,7 +5,8 @@ use indexer_common::indexer_service::http::IndexerServiceImpl;
 use thegraph::types::DeploymentId;
 // #![cfg(feature = "acceptor")]
 // use hyper_rustls::TlsAcceptor;
-use hyper::{Body, Response, StatusCode};
+use crate::file_server::StatusCode;
+use axum::{body::Body, response::Response};
 
 use super::{
     bundle_containing_file,
