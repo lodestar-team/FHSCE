@@ -2,13 +2,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_graphql::{Context, EmptySubscription, MergedObject, Object, Schema};
-use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
-use axum::{extract::State, routing::get, Router, Server};
+use async_graphql_axum::{GraphQLRequest, GraphQLResponse, GraphQL};
+use axum::{extract::State, routing::get, Router, serve};
 use file_exchange::{
     config::{BundleArgs, PublisherArgs},
     publisher::ManifestPublisher,
 };
+use core::net::SocketAddr;
 use http::HeaderMap;
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
 use crate::file_server::{util::graphql_playground, FileServiceError, ServerContext};
@@ -82,8 +84,9 @@ async fn graphql_handler(
     context.state.admin_schema.execute(req).await.into()
 }
 
-pub fn serve_admin(context: ServerContext) {
+pub fn serve_admin(context: ServerContext)  {
     tokio::spawn(async move {
+        let admin_schema=  build_schema().await;
         let admin_context = AdminContext::new(
             AdminState {
                 client: context.state.client.clone(),
@@ -91,7 +94,7 @@ pub fn serve_admin(context: ServerContext) {
                 files: context.state.files.clone(),
                 prices: context.state.prices.clone(),
                 admin_auth_token: context.state.admin_auth_token.clone(),
-                admin_schema: build_schema().await,
+                admin_schema: admin_schema.clone(),
                 store: context.state.store.clone(),
             }
             .into(),
@@ -101,13 +104,21 @@ pub fn serve_admin(context: ServerContext) {
             , "Serve admin metrics");
 
         let router = Router::new()
-            .route("/admin", get(graphql_playground).post(graphql_handler))
+            .route("/admin", get(graphql_playground).post_service(GraphQL::new(admin_schema)))
             .with_state(admin_context);
 
-        Server::bind(&addr)
-            .serve(router.into_make_service())
+        let listener = TcpListener::bind(&addr)
             .await
-            .expect("Failed to initialize admin server")
+            .expect("Failed to bind to file-service admin port");
+        serve(
+            listener,
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await.expect("Failed to initialize admin server");
+        // Server::bind(&addr)
+        //     .serve(router.into_make_service())
+        //     .await
+        //     .expect("Failed to initialize admin server")
     });
 }
 

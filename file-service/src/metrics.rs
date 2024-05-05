@@ -1,8 +1,11 @@
 use autometrics::encode_global_metrics;
 use axum::http::StatusCode;
 use axum::routing::get;
+// use axum::{Router, Server};
 use axum::Router;
-use axum::Server;
+use axum::serve;
+use tokio::net::TcpListener;
+use core::net::SocketAddr;
 use once_cell::sync::Lazy;
 use prometheus::{core::Collector, Registry};
 use prometheus::{HistogramOpts, HistogramVec, IntGaugeVec, Opts};
@@ -83,9 +86,20 @@ pub fn serve_metrics(config: &ServerArgs) {
     let app = Router::new().route("/metrics", get(get_metrics));
     let metrics_addr = config.metrics_host_and_port.unwrap();
     tokio::spawn(async move {
-        Server::bind(&metrics_addr)
-            .serve(app.into_make_service())
+        // Server::bind(&metrics_addr)
+        //     .serve(app.into_make_service())
+        //     .await
+        //     .expect("Failed to initialize metrics server")
+        
+
+        let listener = TcpListener::bind(&metrics_addr)
             .await
-            .expect("Failed to initialize admin server")
+            .expect("Failed to bind to file-service metrics");
+        serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .expect("Failed to initialize metrics server")
     });
 }

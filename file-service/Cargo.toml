@@ -14,13 +14,18 @@ path = "src/main.rs"
 
 [dependencies]
 file-exchange = { path = "../file-exchange" }
+# indexer-common = { package = "indexer-common", git = "https://github.com/graphprotocol/indexer-rs", rev = "3069008" }
 indexer-common = { package = "indexer-common", git = "https://github.com/graphprotocol/indexer-rs", rev = "8c97d04" }
 thegraph = { git = "https://github.com/edgeandnode/toolshed", tag = "thegraph-v0.5.0" }
 anyhow = "1.0"
-async-graphql = "6.0.11"
-async-graphql-axum = "6.0.11"
+# async-graphql = "6.0.11"
+async-graphql = "7.0.3"
+async-graphql-axum = "7.0.3"
+# async-graphql-axum = "6.0.11"
 autometrics = { version = "0.3.3", features = ["prometheus-exporter"] }
-axum = "0.6.20"
+axum = { version = "0.7.5", default_features = true }
+axum-extra = { version = "0.9.3", features = ["typed-header"] }
+#axum = "0.6.20"
 sha3 = "0.10.6"
 base64 = "0.21"
 build-info = "0.0.34"
