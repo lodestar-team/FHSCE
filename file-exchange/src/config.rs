@@ -358,13 +358,6 @@ pub struct AllocateArgs {
         help = "Deployment IPFS hash to allocate"
     )]
     pub deployment_ipfs: String,
-    #[clap(
-        long,
-        value_name = "epoch",
-        env = "EPOCH",
-        help = "Epoch field to generate unique allocation id (Should be auto-resolve through network query)"
-    )]
-    pub epoch: u64,
 }
 
 #[derive(Clone, Debug, Args, Serialize, Deserialize, Default)]

@@ -26,7 +26,6 @@ mod tests {
                 AllocateArgs {
                     tokens: U256::from(100),
                     deployment_ipfs: String::from("QmeKabcCQBtgU6QjM3rp3w6pDHFW4r54ee89nGdhuyDuhi"),
-                    epoch: Utc::now().timestamp() as u64,
                 },
             )),
         };
@@ -44,7 +43,7 @@ mod tests {
             .allocate(
                 &allocate_args.deployment_ipfs,
                 allocate_args.tokens,
-                allocate_args.epoch,
+                Utc::now().timestamp().unsigned_abs(),
             )
             .await
             .unwrap();
