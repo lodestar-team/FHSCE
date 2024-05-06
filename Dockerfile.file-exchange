@@ -1,4 +1,4 @@
-FROM rust:1-bullseye AS build-image
+FROM rust:1.77-bullseye AS build-image
 
 # Update and install necessary packages, including libc6-dev for libresolv
 RUN apt-get update \
