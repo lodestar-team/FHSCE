@@ -97,7 +97,6 @@ pub async fn serve_file_range(
 
     let transferred_bytes = crate::metrics::TRANSFERRED_BYTES.with_label_values(&[file_name]);
     transferred_bytes.set(length.try_into().unwrap());
-    tracing::trace!(bytes = tracing::field::debug(&content), "Serving bytes");
     Response::builder()
         .status(StatusCode::PARTIAL_CONTENT)
         .header(CONTENT_RANGE, format!("bytes {}-{}/{}", start, end, length))
