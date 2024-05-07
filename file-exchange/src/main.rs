@@ -89,6 +89,8 @@ async fn main() {
                     )
                     .await
                     .expect("Fetch epoch number");
+                    tracing::info!(epoch, "current epoch");
+                    // due to something wrong with sepolia, use a +10 to epoch; remove for prod
                     transaction_manager
                         .allocate(&allocate_args.deployment_ipfs, allocate_args.tokens, epoch)
                         .await

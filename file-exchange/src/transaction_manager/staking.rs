@@ -1,11 +1,10 @@
 use ethers::contract::{abigen, Contract};
 use ethers::middleware::SignerMiddleware;
 use ethers::providers::{Http, Provider};
-use ethers::signers::coins_bip39::English;
-use ethers::signers::{Signer, Wallet};
 use ethers_core::k256::ecdsa::SigningKey;
 use ethers_core::types::{Bytes, TransactionReceipt, H160, U256};
 use ethers_core::utils::keccak256;
+use ethers::signers::{coins_bip39::English, LocalWallet, MnemonicBuilder, Signer, Wallet};
 use hdwallet::{DefaultKeyChain, ExtendedPrivKey};
 
 use std::collections::HashMap;
@@ -215,6 +214,11 @@ fn unique_allocation_id(
     deployment: &str,
     existing_ids: &[H160],
 ) -> Result<(Wallet<SigningKey>, H160), Error> {
+    tracing::info!(
+        mnemonic,
+        epoch,
+        deployment,
+        "Check wallet for allocation");
     let seed = Mnemonic::<English>::from_str(mnemonic)
         .map_err(|e| Error::InvalidConfig(e.to_string()))?
         .to_seed(None)
@@ -225,9 +229,11 @@ fn unique_allocation_id(
     );
 
     for i in 0..100 {
-        let (private_key, address) = derive_key_pair(&key_chain, epoch, deployment, i)?;
+        // let (private_key, address) = derive_key_pair(&key_chain, epoch, deployment, i)?;
+        let wallet = derive_key_pair_2(&mnemonic, epoch, deployment, i)?;
+        let address = wallet.address();
         if !existing_ids.contains(&address) {
-            let wallet = Wallet::from_str(&private_key).map_err(Error::WalletError)?;
+            // let wallet = Wallet::from_str(&private_key)?;
             return Ok((wallet, address));
         }
     }
@@ -235,6 +241,36 @@ fn unique_allocation_id(
     Err(Error::ContractError("Exhausted limit of 100 allocations at the same time (This should be removed as allocation parallelization is deprecated)".to_string()))
 }
 
+pub fn derive_key_pair_2(
+    indexer_mnemonic: &str,
+    epoch: u64,
+    deployment: &str,
+    index: u64,
+) -> Result<Wallet<SigningKey>, Error> {
+    let mut derivation_path = format!("m/{}/", epoch);
+    derivation_path.push_str(
+        &deployment
+        .to_string()
+        .as_bytes()
+        .iter()
+        .map(|char| char.to_string())
+        .collect::<Vec<String>>()
+        .join("/"),
+    );
+    derivation_path.push_str(format!("/{}", index).as_str());
+    tracing::info!(derivation_path, "derivation path");
+    
+    let wallet = MnemonicBuilder::<English>::default()
+        .derivation_path(&derivation_path)
+        .expect("Valid derivation path")
+        .phrase(indexer_mnemonic)
+        .build().map_err(|e| Error::WalletError(e))?;
+    Ok(MnemonicBuilder::<English>::default()
+        .derivation_path(&derivation_path)
+        .expect("Valid derivation path")
+        .phrase(indexer_mnemonic)
+        .build().map_err(|e| Error::WalletError(e))?)
+}
 #[cfg(test)]
 mod tests {
     use super::*;

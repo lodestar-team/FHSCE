@@ -51,6 +51,7 @@ impl ReceiptSigner {
         allocation_id: Address,
         fee: &GRT,
     ) -> Result<ScalarReceipt, Error> {
+        tracing::info!(allocation = allocation_id.to_string(), "create_receipt");
         let nonce = rand::thread_rng().next_u64();
         let timestamp_ns = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
