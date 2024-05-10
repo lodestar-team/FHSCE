@@ -53,6 +53,8 @@ To open allocation towards a deployment, provide the deployment IPFS hash, the t
 ✗ file-exchange wallet \
     --mnemonic <mnemonic> \
     --provider <provider_url> \
+    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
+    --escrow-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/scalar-tap-arbitrum-sepolia \
     allocate \
         --tokens <tokens> \
         --deployment-ipfs <deployment_ipfs> \
@@ -67,6 +69,8 @@ To close allocation with 0x0 PoI.
 ✗ file-exchange wallet \
     --mnemonic <mnemonic> \
     --provider <provider_url> \
+    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
+    --escrow-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/scalar-tap-arbitrum-sepolia \
     allocate \
         --allocation-id <id>
 ```
@@ -79,6 +83,8 @@ First time Escrow contract depositer would need to first approve Escrow contract
 ✗ file-exchange wallet \
     --mnemonic <mnemonic> \
     --provider <provider_url> \
+    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
+    --escrow-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/scalar-tap-arbitrum-sepolia \
     approve \
         --tokens <tokens>
 ```
@@ -91,6 +97,8 @@ To deposit tokens in the Escrow contract, provide a receiver of the tokens and t
 ✗ file-exchange wallet \
     --mnemonic <mnemonic> \
     --provider <provider_url> \
+    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
+    --escrow-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/scalar-tap-arbitrum-sepolia \
     deposit \
         --receiver <receiver_address> \
         --tokens <tokens>
@@ -106,6 +114,8 @@ Withdraw deposit from a particular receiver.
 ✗ file-exchange wallet \
     --mnemonic <mnemonic> \
     --provider <provider_url> \
+    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
+    --escrow-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/scalar-tap-arbitrum-sepolia \
     withdraw \
         --receiver <receiver>
 ```
@@ -123,10 +133,11 @@ Grab the IPFS hash of the deployment you want to allocate to and decide the allo
 ✗ cargo run -p file-exchange wallet \
     --mnemonic "mnemonic phrase" \
     --provider "http://localhost:8545" \
+    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
+    --escrow-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/scalar-tap-arbitrum-sepolia \
     allocate \
         --tokens 100 \
-        --deployment-ipfs QmHash \
-        --epoch 100
+        --deployment-ipfs QmHash
 ```
 
 With RUST_LOG turned on, you can expect the following logs upon success
@@ -152,6 +163,8 @@ Grab the ID of allocation you want to close, and populate the unallocate subcomm
 ✗ cargo run -p file-exchange wallet \
     --mnemonic "mnemonic" \
     --provider "provider_url" \
+    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
+    --escrow-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/scalar-tap-arbitrum-sepolia \
     unallocate --allocation-id 0xe37b9ee6d657ab5700e8a964a8fcc8b39cdefd73 
 ```
 

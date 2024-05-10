@@ -1,26 +1,31 @@
+use alloy_primitives::Address;
 use futures::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
-
 use std::sync::Arc;
+use std::{collections::HashMap, str::FromStr};
 
 use tokio::sync::Mutex;
 
-use crate::errors::Error;
-use crate::graphql::cost_query::indexer_cost;
-
-use crate::graphql::status_query::{indexer_bundles, indexer_files};
-use crate::manifest::{
-    ipfs::IpfsClient,
-    manifest_fetcher::{fetch_bundle_from_ipfs, read_bundle},
+use crate::{
+    errors::Error,
+    graphql::{
+        cost_query::indexer_cost,
+        network_query::{indexer_active_allocations, Allocation},
+        status_query::{indexer_bundles, indexer_files},
+    },
+    manifest::{
+        ipfs::IpfsClient,
+        manifest_fetcher::{fetch_bundle_from_ipfs, find_first_valid_allocation, read_bundle},
+    },
+    util::{UDecimal18, GRT},
 };
-use crate::util::{UDecimal18, GRT};
 
-// persumeably this should not be handled by clients themselves
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ServiceEndpoint {
     pub operator: String,
+    // An allocaion is required for payments, no allocation is needed if only free query would be used
+    pub allocation: Option<Allocation>,
     pub service_endpoint: String,
     pub deployment: String,
     pub price_per_byte: f64,
@@ -31,13 +36,15 @@ pub type FileAvailbilityMap = Arc<Mutex<HashMap<String, Arc<Mutex<HashMap<String
 pub struct Finder {
     ipfs_client: IpfsClient,
     http_client: reqwest::Client,
+    network_subgraph_url: String,
 }
 
 impl Finder {
-    pub fn new(ipfs_client: IpfsClient) -> Self {
+    pub fn new(ipfs_client: IpfsClient, network_subgraph_url: &str) -> Self {
         Finder {
             ipfs_client,
             http_client: reqwest::Client::new(),
+            network_subgraph_url: network_subgraph_url.to_string(),
         }
     }
 
@@ -70,9 +77,22 @@ impl Finder {
                 "Indexer did not provide a price".to_string(),
             ))?;
         tracing::debug!(cost, "Indexer posted price for the file");
+        //TODO: check if operator or indexer_address should be used
+        let operator_addr = Address::from_str(&operator)
+            .map_err(|e| Error::DataUnavailable(format!("Failed to parse address: {}", e)))?;
+        let allocations = indexer_active_allocations(
+            &self.http_client,
+            &self.network_subgraph_url,
+            operator_addr,
+        )
+        .await?;
+        let allocation = find_first_valid_allocation(&self.ipfs_client, &allocations)
+            .await
+            .ok();
 
         Ok(ServiceEndpoint {
             operator,
+            allocation,
             service_endpoint: url.to_string(),
             deployment: file_hash.to_string(),
             price_per_byte: cost,
@@ -109,8 +129,23 @@ impl Finder {
             ))?;
         tracing::debug!(cost, "Indexer posted price for the bundle");
 
+        //TODO: check if operator or indexer_address should be used
+        let operator_addr = Address::from_str(&operator)
+            .map_err(|e| Error::DataUnavailable(format!("Failed to parse address: {}", e)))?;
+        let allocations = indexer_active_allocations(
+            &self.http_client,
+            &self.network_subgraph_url,
+            operator_addr,
+        )
+        .await?;
+
+        let allocation = find_first_valid_allocation(&self.ipfs_client, &allocations)
+            .await
+            .ok();
+
         Ok(ServiceEndpoint {
             operator,
+            allocation,
             service_endpoint: url.to_string(),
             deployment: bundle_hash.to_string(),
             price_per_byte: cost,

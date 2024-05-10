@@ -168,6 +168,17 @@ impl ManifestPublisher {
         let yaml = to_string(&file_manifest).map_err(Error::YamlError)?;
         Ok(yaml)
     }
+
+    /// Publish a server file to allocate; as a dummy allocation for TAP
+    pub async fn publish_str(&self, content: &str) -> Result<AddResponse, Error> {
+        let added: AddResponse = self
+            .ipfs_client
+            .add(content.as_bytes().to_vec())
+            .await
+            .map_err(Error::IPFSError)?;
+
+        Ok(added)
+    }
 }
 
 fn union_obj_metas(vec1: Vec<ObjectMeta>, vec2: Vec<ObjectMeta>) -> Vec<ObjectMeta> {

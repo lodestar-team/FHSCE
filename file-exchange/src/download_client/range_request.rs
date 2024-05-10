@@ -1,19 +1,17 @@
 use bytes::Bytes;
-
 use reqwest::{header::HeaderName, Client};
 
 use std::fs::File;
 use std::io::{Seek, SeekFrom, Write};
-
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 
-use crate::{errors::Error, manifest::file_hasher::verify_chunk};
+use crate::{download_client::ServiceEndpoint, errors::Error, manifest::file_hasher::verify_chunk};
 
 #[derive(Debug, Clone)]
 pub struct DownloadRangeRequest {
-    pub receiver: String,
+    pub receiver: ServiceEndpoint,
     pub query_endpoint: String,
     pub file_hash: String,
     pub start: u64,

@@ -1,4 +1,3 @@
-use alloy_primitives::Address;
 use graphql_http::{
     graphql::{Document, IntoDocument},
     http::request::{IntoRequestParameters, RequestParameters},
@@ -7,7 +6,6 @@ use graphql_http::{
 use reqwest::header;
 use serde::Deserialize;
 use serde_json::{Map, Value};
-use std::str::FromStr;
 
 use crate::errors::Error;
 
@@ -15,11 +13,6 @@ pub mod cost_query;
 pub mod escrow_query;
 pub mod network_query;
 pub mod status_query;
-
-//TODO: deprecate when we determine the on-chain discovery piece for allocation
-pub fn allocation_id(_indexer: &str) -> Address {
-    Address::from_str("0x29cc405f6104b1d6d2d7f2989c5932818f6268c2").unwrap()
-}
 
 #[derive(Clone)]
 pub struct Query {

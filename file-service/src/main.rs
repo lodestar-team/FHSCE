@@ -1,14 +1,17 @@
 use anyhow::Error;
 use axum::{routing::get, Router};
 use clap::Parser;
-use file_service::file_server::{
-    cost::cost, initialize_server_context, status::status, util::graphql_playground,
+
+use file_service::{
+    admin, config,
+    file_server::{
+        cost::cost, initialize_server_context, status::status, util::graphql_playground,
+    },
+    metrics,
 };
-use file_service::{admin, config, metrics};
 use indexer_common::indexer_service::http::{
     IndexerService, IndexerServiceOptions, IndexerServiceRelease,
 };
-use tracing::error;
 
 /// Run the subgraph indexer service
 #[tokio::main]
@@ -22,7 +25,7 @@ async fn main() -> Result<(), Error> {
     let config = match file_service::config::Config::load(&cli.config) {
         Ok(config) => config,
         Err(e) => {
-            error!(
+            tracing::error!(
                 "Invalid configuration file `{}`: {}",
                 cli.config.display(),
                 e
@@ -40,7 +43,9 @@ async fn main() -> Result<(), Error> {
         .expect("Failed to initiate bundle server");
     admin::serve_admin(state.clone());
     metrics::serve_metrics(&config.server);
-
+    //TODO: if wallet is provided, add to check if an allocation is open
+    // we want indexer-agent to handle allocations, but wallet CLI provides
+    // an easy command to manually open or close
     IndexerService::run(IndexerServiceOptions {
         release,
         config: config.clone().common,

@@ -1,8 +1,7 @@
 use alloy_primitives::U256;
 use ethers::signers::{coins_bip39::English, LocalWallet, MnemonicBuilder, Signer, Wallet};
 use ethers_core::k256::ecdsa::SigningKey;
-use ethers_core::types::H160;
-use hdwallet::{ChainPath, DefaultKeyChain, KeyChain};
+
 use std::{
     collections::{HashMap, HashSet},
     fmt,
@@ -42,33 +41,6 @@ pub fn public_key(value: &str) -> Result<String, Error> {
     let addr = wallet_address(&wallet);
     tracing::trace!(address = addr, "Resolved wallet address");
     Ok(addr)
-}
-
-// Given a HD wallet, utilize the additional paths to generate child wallet,
-// return child wallet public key, private key, wallet address
-pub fn derive_key_pair(
-    key_chain: &DefaultKeyChain,
-    epoch: u64,
-    qm_hash: &str,
-    index: u64,
-) -> Result<(String, H160), Error> {
-    let path = format!(
-        "m/{}",
-        std::iter::once(epoch.to_string())
-            .chain(qm_hash.as_bytes().iter().map(|b| b.to_string()))
-            .chain(std::iter::once(index.to_string()))
-            .collect::<Vec<_>>()
-            .join("/")
-    );
-    let chain_path = ChainPath::from(path);
-
-    let (derived_key, _) = key_chain
-        .derive_private_key(chain_path)
-        .map_err(|e| Error::ContractError(e.to_string()))?;
-    let private_key = derived_key.private_key.display_secret().to_string();
-    let wallet = build_wallet(&private_key)?;
-
-    Ok((private_key, wallet.address()))
 }
 
 /* Token unit and formatting */

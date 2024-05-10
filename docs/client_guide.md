@@ -49,7 +49,9 @@ Download a single file into local file system (`local-files`) with free query au
 $ file-exchange downloader \
    --ipfs-hash QmHash \
    --indexer-endpoints http://localhost:5678,http://localhost:5677 \
-   --free-query-auth-token 'Bearer auth_token' \
+   --mnemonic "mnemonic" \
+   --provider "https://eth-provider" \
+   --verifier 0xfC24cE7a4428A6B89B52645243662A02BA734ECF \
    --network-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia \
    --escrow-subgraph https://api.thegraph.com/subgraphs/name/graphprotocol/scalar-tap-arbitrum-sepolia \
    --provider-concurrency 2 \

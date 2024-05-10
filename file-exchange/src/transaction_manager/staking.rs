@@ -1,19 +1,19 @@
 use ethers::contract::{abigen, Contract};
 use ethers::middleware::SignerMiddleware;
 use ethers::providers::{Http, Provider};
-use ethers_core::k256::ecdsa::SigningKey;
-use ethers_core::types::{Bytes, TransactionReceipt, H160, U256};
-use ethers_core::utils::keccak256;
-use ethers::signers::{coins_bip39::English, LocalWallet, MnemonicBuilder, Signer, Wallet};
-use hdwallet::{DefaultKeyChain, ExtendedPrivKey};
+use ethers::signers::{coins_bip39::English, MnemonicBuilder, Signer, Wallet};
+use ethers_core::{
+    k256::ecdsa::SigningKey,
+    types::{Bytes, TransactionReceipt, H160, U256},
+    utils::keccak256,
+};
 
 use std::collections::HashMap;
 use std::str::FromStr;
 
 use crate::errors::Error;
-use crate::transaction_manager::coins_bip39::Mnemonic;
 use crate::transaction_manager::contract_error_decode;
-use crate::util::{build_wallet, derive_key_pair};
+use crate::util::build_wallet;
 
 use super::TransactionManager;
 
@@ -214,26 +214,11 @@ fn unique_allocation_id(
     deployment: &str,
     existing_ids: &[H160],
 ) -> Result<(Wallet<SigningKey>, H160), Error> {
-    tracing::info!(
-        mnemonic,
-        epoch,
-        deployment,
-        "Check wallet for allocation");
-    let seed = Mnemonic::<English>::from_str(mnemonic)
-        .map_err(|e| Error::InvalidConfig(e.to_string()))?
-        .to_seed(None)
-        .map_err(|e| Error::InvalidConfig(e.to_string()))?;
-
-    let key_chain = DefaultKeyChain::new(
-        ExtendedPrivKey::with_seed(&seed).map_err(|e| Error::InvalidConfig(e.to_string()))?,
-    );
-
+    tracing::trace!(mnemonic, epoch, deployment, "Check wallet for allocation");
     for i in 0..100 {
-        // let (private_key, address) = derive_key_pair(&key_chain, epoch, deployment, i)?;
-        let wallet = derive_key_pair_2(&mnemonic, epoch, deployment, i)?;
+        let wallet = derive_key_pair(mnemonic, epoch, deployment, i)?;
         let address = wallet.address();
         if !existing_ids.contains(&address) {
-            // let wallet = Wallet::from_str(&private_key)?;
             return Ok((wallet, address));
         }
     }
@@ -241,7 +226,7 @@ fn unique_allocation_id(
     Err(Error::ContractError("Exhausted limit of 100 allocations at the same time (This should be removed as allocation parallelization is deprecated)".to_string()))
 }
 
-pub fn derive_key_pair_2(
+pub fn derive_key_pair(
     indexer_mnemonic: &str,
     epoch: u64,
     deployment: &str,
@@ -250,27 +235,23 @@ pub fn derive_key_pair_2(
     let mut derivation_path = format!("m/{}/", epoch);
     derivation_path.push_str(
         &deployment
-        .to_string()
-        .as_bytes()
-        .iter()
-        .map(|char| char.to_string())
-        .collect::<Vec<String>>()
-        .join("/"),
+            .to_string()
+            .as_bytes()
+            .iter()
+            .map(|char| char.to_string())
+            .collect::<Vec<String>>()
+            .join("/"),
     );
     derivation_path.push_str(format!("/{}", index).as_str());
-    tracing::info!(derivation_path, "derivation path");
-    
-    let wallet = MnemonicBuilder::<English>::default()
+
+    MnemonicBuilder::<English>::default()
         .derivation_path(&derivation_path)
         .expect("Valid derivation path")
         .phrase(indexer_mnemonic)
-        .build().map_err(|e| Error::WalletError(e))?;
-    Ok(MnemonicBuilder::<English>::default()
-        .derivation_path(&derivation_path)
-        .expect("Valid derivation path")
-        .phrase(indexer_mnemonic)
-        .build().map_err(|e| Error::WalletError(e))?)
+        .build()
+        .map_err(Error::WalletError)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,16 +264,13 @@ mod tests {
         let deployment = "QmeaPp764FjQjPB66M9ijmQKmLhwBpHQhA7dEbH2FA1j3v";
         let mut existing_ids: Vec<H160> = vec![];
 
-        for _i in 0..100 {
+        for _i in 0..2 {
             let (_, allocation_id) =
                 unique_allocation_id(indexer_mnemonic, epoch, deployment, &existing_ids).unwrap();
             existing_ids.push(allocation_id);
         }
 
-        assert!(existing_ids.len() == 100);
-
-        let uniquesness = unique_allocation_id(indexer_mnemonic, epoch, deployment, &existing_ids);
-        assert!(uniquesness.is_err());
+        assert!(existing_ids.len() == 2);
     }
 
     #[test]

@@ -27,7 +27,7 @@ use crate::{
     discover::{Finder, ServiceEndpoint},
     download_client::range_request::download_chunk_and_write_to_file,
     errors::Error,
-    graphql::{allocation_id, escrow_query::escrow_balance},
+    graphql::escrow_query::escrow_balance,
     manifest::{
         ipfs::IpfsClient, manifest_fetcher::read_bundle, store::Store, Bundle, FileManifestMeta,
     },
@@ -169,7 +169,7 @@ impl Downloader {
             indexer_urls: Arc::new(StdMutex::new(Vec::new())),
             indexer_blocklist: Arc::new(StdMutex::new(HashSet::new())),
             target_chunks,
-            bundle_finder: Finder::new(ipfs_client),
+            bundle_finder: Finder::new(ipfs_client, &args.network_subgraph),
             payment,
             store,
         }
@@ -397,13 +397,24 @@ impl Downloader {
     }
 
     /// Make a header for chunk request authorization either free or paid
-    async fn payment_header(&self, receiver: &str) -> Result<(HeaderName, String), Error> {
+    async fn payment_header(
+        &self,
+        receiver: &ServiceEndpoint,
+    ) -> Result<(HeaderName, String), Error> {
         match &self.payment {
+            //TODO: add service endpoint specific tokens
             PaymentMethod::FreeQuery(token) => Ok((AUTHORIZATION, token.to_string())),
             PaymentMethod::PaidQuery(signer) => {
+                let allocation_id = receiver
+                    .allocation
+                    .clone()
+                    .ok_or(Error::DataUnavailable(
+                        "Receiver doesn't have an allocation for payments".to_string(),
+                    ))?
+                    .id;
                 let receipt = signer
                     .receipt_signer
-                    .create_receipt(allocation_id(receiver), &Finder::fees())
+                    .create_receipt(allocation_id, &Finder::fees())
                     .await?;
                 Ok((
                     // HeaderName::from_str("Scalar-Receipt").unwrap(),
@@ -459,7 +470,7 @@ impl Downloader {
         let chunk_hash = meta.file_manifest.chunk_hashes[i as usize].clone();
 
         Ok(DownloadRangeRequest {
-            receiver: service.operator.clone(),
+            receiver: service,
             query_endpoint,
             file_hash,
             start,

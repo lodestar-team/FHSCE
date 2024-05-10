@@ -4,6 +4,7 @@ use serde::de::DeserializeOwned;
 
 use crate::{
     errors::Error,
+    graphql::network_query::Allocation,
     manifest::ipfs::IpfsClient,
     manifest::{Bundle, BundleManifest, FileManifest, FileManifestMeta},
 };
@@ -102,4 +103,45 @@ pub async fn read_bundle(client: &IpfsClient, ipfs: &str) -> Result<Bundle, Erro
         manifest,
         file_manifests,
     })
+}
+
+///(NOT ACTUALLY CHECKING ANYTHING IN PARTICULAR)
+/// Determine if an allocation is against a file service deployment
+/// Temporary before world of data services
+pub async fn is_file_allocation(
+    ipfs_client: &IpfsClient,
+    allocation: &Allocation,
+) -> Result<Allocation, Error> {
+    // read subgraph deployment ipfs hash
+    let timeout = Duration::from_secs(10);
+    // read ipfs file and fit it to a server string
+    let file_bytes = ipfs_client
+        .cat_all(&allocation.subgraph_deployment.ipfs_hash, timeout)
+        .await
+        .map_err(Error::IPFSError)?;
+
+    let content: String =
+        String::from_utf8(file_bytes.to_vec()).map_err(|e| Error::ManifestError(e.to_string()))?;
+    tracing::info!(
+        content,
+        "content; should check if the content is a server url / dummy allocation"
+    );
+    if reqwest::Url::parse(&content).is_ok() {
+        return Ok(allocation.clone());
+    }
+    Err(Error::ManifestError(content))
+}
+
+pub async fn find_first_valid_allocation(
+    ipfs_client: &IpfsClient,
+    allocations: &[Allocation],
+) -> Result<Allocation, Error> {
+    for allocation in allocations {
+        if is_file_allocation(ipfs_client, allocation).await.is_ok() {
+            return Ok(allocation.clone());
+        }
+    }
+    Err(Error::DataUnavailable(
+        "No valid file service allocations found".to_string(),
+    )) // No valid allocation found
 }

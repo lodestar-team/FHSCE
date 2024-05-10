@@ -53,9 +53,11 @@ mod tests {
         let _ = server_ready(server_1).await;
 
         // 2. Setup finder
+        let network_url =
+            "https://api.thegraph.com/subgraphs/name/graphprotocol/graph-network-arbitrum-sepolia";
         let client = IpfsClient::new("https://ipfs.network.thegraph.com")
             .expect("Could not create client to thegraph IPFS gateway");
-        let finder = Finder::new(client);
+        let finder = Finder::new(client, network_url);
 
         // 3. Find various combinations of bundles
         // 3.1 find bundle_0 with server 0 and 1, get server 0
