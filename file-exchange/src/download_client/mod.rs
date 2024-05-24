@@ -700,7 +700,7 @@ fn extract_base_url(query_endpoint: &str) -> Option<&str> {
     }
 }
 
-async fn read_file_contents(file: &str) -> Result<Vec<u8>, Error> {
+pub async fn read_file_contents(file: &str) -> Result<Vec<u8>, Error> {
     let mut file = File::open(Path::new(file))
         .unwrap_or_else(|_| panic!("Cannot open file {} to transfer to object store", file));
     let mut contents = Vec::new();

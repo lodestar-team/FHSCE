@@ -22,11 +22,13 @@ graphql-http = { git = "https://github.com/edgeandnode/toolshed", tag = "graphql
 ] }
 tap_core = { git = "https://github.com/semiotic-ai/timeline-aggregation-protocol" }
 anyhow = "1.0"
+async-graphql = "7.0.1"
 bs58 = "0.5.0"
 base64 = "0.21"
 build-info = "0.0.34"
 bytes = "1.0"
 chrono = "0.4.31"
+cid = {version = "0.11.1", features = ["alloc"]}
 clap = { version = "4.4", features = ["cargo", "unstable-doc"] }
 confy = "0.6"
 ctrlc = "3.4.4"
@@ -36,14 +38,17 @@ ethers = "2.0.11"
 # ethers = {version = "2.0.11", features = [  "abigen-online" ]}
 ethers-core = "2.0.11"
 futures = { version = "0.3", features = ["compat"] }
-async-graphql = "7.0.1"
 hdwallet = "0.4.1"
 hex = "0.4.3"
 http = "1.0"
 hyper = { version = "1.1", features = [ "server" ]}
 ipfs-api-backend-hyper = "0.6"
 ipfs-api-prelude = "0.6"
+rust-ipfs = "0.11.19"
+libipld = "0.16.0"
 merkle-cbt = "0.3.2"
+multihash = "0.19.1"
+multihash-codetable = "0.1.2"
 object_store = {version = "0.9", features = [ "http", "aws", "gcp", "azure" ]}
 rand = "0.8.4"
 reqwest = { version = "0.11", features = ["json", "stream", "multipart"] }

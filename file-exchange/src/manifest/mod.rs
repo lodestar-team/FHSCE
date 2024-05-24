@@ -1,6 +1,7 @@
 use async_graphql::SimpleObject;
 use object_store::path::Path;
 
+pub mod cid;
 pub mod file_hasher;
 pub mod file_reader;
 pub mod ipfs;
