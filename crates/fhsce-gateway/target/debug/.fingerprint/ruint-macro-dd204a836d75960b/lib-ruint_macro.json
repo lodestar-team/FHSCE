@@ -1,0 +1,1 @@
+{"rustc":17940977064402226622,"features":"[]","declared_features":"[]","target":7856926811559717411,"profile":3033921117576893,"path":7964552608192132327,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"debug/.fingerprint/ruint-macro-dd204a836d75960b/dep-lib-ruint_macro","checksum":false}}],"rustflags":["--cfg","tokio_unstable"],"config":8247474407144887393,"compile_kind":0}

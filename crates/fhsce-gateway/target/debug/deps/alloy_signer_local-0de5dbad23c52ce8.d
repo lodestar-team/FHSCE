@@ -1,0 +1,10 @@
+/Users/pepe/Projects/FHSCE/crates/fhsce-gateway/target/debug/deps/alloy_signer_local-0de5dbad23c52ce8.d: /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/lib.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/error.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/private_key.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/../README.md
+
+/Users/pepe/Projects/FHSCE/crates/fhsce-gateway/target/debug/deps/liballoy_signer_local-0de5dbad23c52ce8.rlib: /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/lib.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/error.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/private_key.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/../README.md
+
+/Users/pepe/Projects/FHSCE/crates/fhsce-gateway/target/debug/deps/liballoy_signer_local-0de5dbad23c52ce8.rmeta: /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/lib.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/error.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/private_key.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/../README.md
+
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/lib.rs:
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/error.rs:
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/private_key.rs:
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/alloy-signer-local-0.5.4/src/../README.md:

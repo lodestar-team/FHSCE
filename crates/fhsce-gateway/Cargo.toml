@@ -1,0 +1,22 @@
+# Standalone workspace — decoupled from the legacy file-service/file-exchange
+# crates so the Horizon gateway builds independently of the upstream tree.
+[workspace]
+
+[package]
+name = "fhsce-gateway"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Horizon TAP v2 (GraphTally) payment gateway in front of the File Hosting Service data plane. Built on horizon-core."
+
+[[bin]]
+name = "fhsce-gateway"
+path = "src/main.rs"
+
+[dependencies]
+horizon-core = { git = "https://github.com/lodestar-team/horizon-core", branch = "main" }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"

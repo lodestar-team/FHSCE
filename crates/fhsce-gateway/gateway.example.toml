@@ -1,0 +1,44 @@
+# FHSCE gateway configuration.
+# Copy to gateway.toml and fill in real values. Load path via $GATEWAY_CONFIG.
+
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[indexer]
+# This provider's on-chain address (the registered service provider).
+service_provider_address = "0x0000000000000000000000000000000000000000"
+# Hex 32-byte operator key used to sign collect() transactions. Keep secret.
+operator_private_key = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+[tap]
+# FileHostingDataService proxy address on Arbitrum One (set after deployment).
+data_service_address = "0x0000000000000000000000000000000000000000"
+# Gateway (consumer) addresses authorised to issue TAP receipts. Empty = accept any valid signer.
+authorized_senders = []
+# GraphTallyCollector domain (defaults are Arbitrum One mainnet).
+eip712_domain_name = "GraphTallyCollector"
+eip712_chain_id = 42161
+eip712_verifying_contract = "0x8f69F5C07477Ac46FBc491B1E6D91E2bb0111A9e"
+# Reject receipts older than this (ns). Default 30s.
+max_receipt_age_ns = 30000000000
+# TAP aggregator base URL (its /rav/aggregate endpoint is used). Optional — omit to disable aggregation.
+# aggregator_url = "http://localhost:7610"
+aggregation_interval_secs = 60
+
+[backend]
+# The upstream file-service data plane the gateway TAP-gates and proxies to.
+upstream_url = "http://127.0.0.1:5678"
+
+[database]
+url = "postgres://fhsce:fhsce@localhost:5432/fhsce"
+
+# Enable on-chain RAV collection (omit the whole section to disable).
+[collector]
+arbitrum_rpc_url = "https://arb1.arbitrum.io/rpc"
+collect_interval_secs = 3600
+min_collect_value = "0"
+
+[rate_limit]
+requests_per_second = 20
+burst_size = 40

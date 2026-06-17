@@ -1,0 +1,12 @@
+/Users/pepe/Projects/FHSCE/crates/fhsce-gateway/target/debug/deps/matchit-161cf0797a71014e.d: /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/lib.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/error.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/escape.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/params.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/router.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/tree.rs
+
+/Users/pepe/Projects/FHSCE/crates/fhsce-gateway/target/debug/deps/libmatchit-161cf0797a71014e.rlib: /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/lib.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/error.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/escape.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/params.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/router.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/tree.rs
+
+/Users/pepe/Projects/FHSCE/crates/fhsce-gateway/target/debug/deps/libmatchit-161cf0797a71014e.rmeta: /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/lib.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/error.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/escape.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/params.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/router.rs /Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/tree.rs
+
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/lib.rs:
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/error.rs:
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/escape.rs:
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/params.rs:
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/router.rs:
+/Users/pepe/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matchit-0.8.4/src/tree.rs:
