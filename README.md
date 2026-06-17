@@ -20,6 +20,28 @@
 > Experimental, community-led — **not affiliated with the Graph Foundation, Edge & Node, or GraphOps.** Unaudited.
 > See [`docs/`](docs/) for the upstream architecture and the original README below.
 
+## Status — honest current state
+
+**Not deployed. No live provider yet.** This is finished, tested code that has not yet been broadcast to a
+network or run as a real service. Concretely:
+
+- ✅ **Contract written & tested** — `FileHostingDataService.sol`, 39 Foundry tests passing (incl. UUPS
+  upgrade-preserves-state, the 1%-burn collect path, replay/auth guards).
+- ✅ **Deploy fork-verified** — `script/Deploy.s.sol` runs successfully against the *real* Arbitrum One Horizon
+  contracts on a mainnet fork (impl + proxy deploy, `initialize` reads the live `Controller`, manifest
+  allowlisted). It has **not** been broadcast to mainnet.
+- ✅ **Gateway built** — `crates/fhsce-gateway` compiles on top of [horizon-core](https://github.com/lodestar-team/horizon-core);
+  the off-chain TAP path (receipt → verify → persist → proxy, with replay/expiry rejection) is covered by an
+  end-to-end test against Postgres in horizon-core.
+- ⬜ **Not deployed to Arbitrum One** — no `FileHostingDataService` proxy address exists yet; no GRT has been
+  settled or burned on-chain.
+- ⬜ **No running provider** — the upstream `file-service` data plane is **not** yet wired to serve real
+  Arbitrum firehose `.dbin` flatfiles, and no manifest has been published to IPFS.
+- ⬜ **End-to-end paid loop unproven on-chain** — the real `collect()` settlement (real GRT, real burn) is
+  pending the mainnet deploy + a funded provider.
+
+In short: the building blocks are done and green; the live deployment is the remaining work.
+
 ---
 
 ## Introduction 

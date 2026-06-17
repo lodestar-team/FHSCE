@@ -13,3 +13,6 @@ test2.toml
 /cache
 /lib
 /broadcast
+
+# deploy secrets
+.env.deploy
