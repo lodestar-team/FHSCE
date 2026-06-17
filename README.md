@@ -1,4 +1,26 @@
-# File Hosting Service
+# File Hosting Service — Community Edition (FHSCE)
+
+> **This is a community fork of [graphops/file-hosting-service](https://github.com/graphops/file-hosting-service),
+> brought onto The Graph's [Horizon](https://thegraph.com/docs/en/graph-horizon/overview/) framework.**
+>
+> The upstream FHS data plane is excellent — chunked, SHA2-256-verified, IPFS-addressed file sharing — but its
+> payment layer is legacy Scalar TAP (allocations, the old `Escrow` contract, the pre-Horizon
+> indexer-service framework), and micropayments were never finished (*"to be supported"*). FHSCE keeps the data
+> plane and replaces the payments with **Horizon-native TAP v2 (GraphTally)**:
+>
+> - **`contracts/FileHostingDataService.sol`** — a UUPS-upgradeable Horizon data-service contract. Providers
+>   stake/provision GRT, `register`, and `startService` per IPFS **manifest CID**; consumers pay per
+>   request/byte via signed TAP receipts that providers redeem as RAVs through `collect()`. Community-Edition
+>   fee policy: a fixed **1% cut, burned in full** (0% retained), mirroring SDSCE. 39 Foundry tests.
+> - **`crates/fhsce-gateway`** — a thin TAP-gated reverse proxy in front of the file-service data plane, built on
+>   [**horizon-core**](https://github.com/lodestar-team/horizon-core) (the shared Horizon payment plumbing:
+>   receipt validation, RAV aggregation, on-chain collection, persistence). A signed `TAP-Receipt` header is
+>   verified and metered, then the (range-aware) request is proxied to the upstream file-service.
+>
+> Experimental, community-led — **not affiliated with the Graph Foundation, Edge & Node, or GraphOps.** Unaudited.
+> See [`docs/`](docs/) for the upstream architecture and the original README below.
+
+---
 
 ## Introduction 
 
