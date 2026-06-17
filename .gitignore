@@ -7,3 +7,9 @@
 local.toml
 test.toml
 test2.toml
+
+# Foundry build artefacts and vendored libraries (Horizon stack)
+/out
+/cache
+/lib
+/broadcast
