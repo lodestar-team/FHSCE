@@ -13,7 +13,7 @@
 >   request/byte via signed TAP receipts that providers redeem as RAVs through `collect()`. Community-Edition
 >   fee policy: a fixed **1% cut, burned in full** (0% retained), mirroring SDSCE. 39 Foundry tests.
 > - **`crates/fhsce-gateway`** — a thin TAP-gated reverse proxy in front of the file-service data plane, built on
->   [**horizon-core**](https://github.com/lodestar-team/horizon-core) (the shared Horizon payment plumbing:
+>   [**horizon-core**](https://github.com/nightswatchhq/horizon-core) (the shared Horizon payment plumbing:
 >   receipt validation, RAV aggregation, on-chain collection, persistence). A signed `TAP-Receipt` header is
 >   verified and metered, then the (range-aware) request is proxied to the upstream file-service.
 >
@@ -30,7 +30,7 @@ network or run as a real service. Concretely:
 - ✅ **Deploy fork-verified** — `script/Deploy.s.sol` runs successfully against the *real* Arbitrum One Horizon
   contracts on a mainnet fork (impl + proxy deploy, `initialize` reads the live `Controller`, manifest
   allowlisted). It has **not** been broadcast to mainnet.
-- ✅ **Gateway built** — `crates/fhsce-gateway` compiles on top of [horizon-core](https://github.com/lodestar-team/horizon-core);
+- ✅ **Gateway built** — `crates/fhsce-gateway` compiles on top of [horizon-core](https://github.com/nightswatchhq/horizon-core);
   the off-chain TAP path (receipt → verify → persist → proxy, with replay/expiry rejection) is covered by an
   end-to-end test against Postgres in horizon-core.
 - ⬜ **Not deployed to Arbitrum One** — no `FileHostingDataService` proxy address exists yet; no GRT has been
