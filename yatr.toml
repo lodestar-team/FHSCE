@@ -24,8 +24,8 @@ run = ["cargo fmt --all -- --check", "forge fmt --check"]
 sources = ["**/*.rs", "**/*.sol"]
 
 [tasks.lint]
-desc = "Clippy with warnings denied"
-run = ["cargo clippy --workspace --all-targets -- -D warnings"]
+desc = "Clippy, warnings denied except dead-code (CI: clippy)"
+run = ["cargo clippy --all-features --all-targets -- -A dead-code -D warnings"]
 sources = ["**/*.rs", "**/Cargo.toml", "Cargo.lock"]
 
 [tasks.contracts]
@@ -35,7 +35,7 @@ sources = ["**/*.sol", "foundry.toml"]
 
 [tasks.test]
 desc = "Rust and Forge test suites"
-run = ["cargo test --workspace", "forge test"]
+run = ["cargo test --all-features --workspace", "forge test"]
 sources = ["**/*.rs", "**/*.sol", "Cargo.lock"]
 
 [tasks.build]
@@ -43,7 +43,21 @@ desc = "Release build"
 run = ["cargo build --workspace --release"]
 sources = ["**/*.rs", "Cargo.lock"]
 
+[tasks.coverage]
+desc = "Test with coverage (CI: cargo test and coverage; needs cargo-llvm-cov and Postgres)"
+run = [
+    "cargo llvm-cov test --profile git-test --all-features --workspace --lcov --output-path lcov.info",
+    "cargo test --doc --all-features --workspace",
+]
+env = { SQLX_OFFLINE = "true" }
+no_cache = true
+
+[tasks.sqlx]
+desc = "Fail if the sqlx offline data is stale (CI: sqlx; needs Postgres)"
+run = ["cargo sqlx prepare --workspace --check -- --all-targets --all-features"]
+no_cache = true
+
 [tasks.ci]
-desc = "What CI runs: fmt-check, lint, contracts, test"
+desc = "What CI runs without a database: fmt-check, lint, contracts, test"
 depends = ["fmt-check", "lint", "contracts", "test"]
 run = []
