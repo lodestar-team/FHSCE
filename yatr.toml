@@ -1,0 +1,49 @@
+# yatr - https://github.com/cargopete/yatr
+#
+# Task names are the same across every nightswatchhq repo, so `yatr ci` means
+# the same thing wherever you are. Note that `ci` is deliberately not called
+# `check`: `yatr check` is a builtin that validates this file, and it shadows
+# any task of that name without warning.
+
+# A cargo workspace with Foundry contracts alongside it.
+
+[env]
+RUST_BACKTRACE = "1"
+
+[settings]
+cache = true
+
+[tasks.fmt]
+desc = "Format Rust and Solidity"
+run = ["cargo fmt --all", "forge fmt"]
+no_cache = true
+
+[tasks.fmt-check]
+desc = "Fail if either tree is unformatted"
+run = ["cargo fmt --all -- --check", "forge fmt --check"]
+sources = ["**/*.rs", "**/*.sol"]
+
+[tasks.lint]
+desc = "Clippy with warnings denied"
+run = ["cargo clippy --workspace --all-targets -- -D warnings"]
+sources = ["**/*.rs", "**/Cargo.toml", "Cargo.lock"]
+
+[tasks.contracts]
+desc = "Compile the contracts"
+run = ["forge build"]
+sources = ["**/*.sol", "foundry.toml"]
+
+[tasks.test]
+desc = "Rust and Forge test suites"
+run = ["cargo test --workspace", "forge test"]
+sources = ["**/*.rs", "**/*.sol", "Cargo.lock"]
+
+[tasks.build]
+desc = "Release build"
+run = ["cargo build --workspace --release"]
+sources = ["**/*.rs", "Cargo.lock"]
+
+[tasks.ci]
+desc = "What CI runs: fmt-check, lint, contracts, test"
+depends = ["fmt-check", "lint", "contracts", "test"]
+run = []
